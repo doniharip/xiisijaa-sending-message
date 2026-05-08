@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pesan Rahasia Kelas</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- ═══ SCREEN: PILIH NAMA ═══ -->
+<div id="screen-login" class="screen active">
+  <div class="auth-wrap">
+    <div class="auth-logo">🔒</div>
+    <h1>Pesan Rahasia Kelas</h1>
+    <p class="subtitle">Pilih namamu untuk mulai</p>
+    <div class="card">
+      <div class="field">
+        <label>Nama</label>
+        <select id="login-name" onchange="onNameChange()">
+          <option value="">— Pilih namamu —</option>
+        </select>
+      </div>
+      <!-- Tampil jika sudah setup password -->
+      <div id="login-pass-section" style="display:none">
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="login-pass" placeholder="Masukkan password"/>
+          <div class="error" id="login-error"></div>
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()">Masuk →</button>
+      </div>
+      <!-- Tampil jika belum setup password -->
+      <div id="login-setup-section" style="display:none">
+        <div class="notice notice-info">
+          👋 Halo! Ini pertama kalinya kamu login.<br>Buat password untuk akunmu.
+        </div>
+        <div class="field">
+          <label>Buat Password Baru</label>
+          <input type="password" id="setup-pass" placeholder="Minimal 4 karakter"/>
+        </div>
+        <div class="field">
+          <label>Konfirmasi Password</label>
+          <input type="password" id="setup-pass2" placeholder="Ulangi password"/>
+          <div class="error" id="setup-error"></div>
+        </div>
+        <button class="btn btn-primary" onclick="doSetup()">Buat Password & Masuk →</button>
+      </div>
+    </div>
+    <p class="link-hint">Admin? <a href="#" onclick="showScreen('screen-admin-login')">Masuk sebagai admin</a></p>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: ADMIN LOGIN ═══ -->
+<div id="screen-admin-login" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">⚙️</div>
+    <h1>Admin Panel</h1>
+    <p class="subtitle">Kelola akun dan fase pengisian/pembacaan</p>
+    <div class="card">
+      <div class="field">
+        <label>Password Admin</label>
+        <input type="password" id="admin-pass" placeholder="Password admin"
+               onkeydown="if(event.key==='Enter')doAdminLogin()"/>
+        <div class="error" id="admin-error"></div>
+      </div>
+      <button class="btn btn-primary" onclick="doAdminLogin()">Masuk</button>
+      <button class="btn btn-ghost" onclick="showScreen('screen-login')">← Kembali</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: USER APP ═══ -->
+<div id="screen-user" class="screen">
+  <header class="app-header">
+    <div class="header-left">
+      <div class="avatar" id="user-avatar"></div>
+      <span class="header-name" id="user-name-display"></span>
+    </div>
+    <button class="btn-icon" onclick="doLogout()" title="Keluar">🚪</button>
+  </header>
+
+  <!-- Banner fase ditutup -->
+  <div id="banner-send-closed" class="phase-banner banner-warn" style="display:none">
+    🔒 <strong>Fase pengisian ditutup.</strong> Kamu tidak bisa mengirim pesan saat ini.
+  </div>
+  <div id="banner-read-closed" class="phase-banner banner-warn" style="display:none">
+    🔒 <strong>Fase pembacaan belum dibuka.</strong> Pesanmu akan bisa dibaca setelah admin membukanya.
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" id="tab-btn-inbox" onclick="userTab(this,'tab-inbox')">📬 Pesanku</button>
+    <button class="tab" id="tab-btn-send" onclick="userTab(this,'tab-send')">✉️ Kirim Pesan</button>
+  </div>
+  <div class="tab-content">
+    <div id="tab-inbox" class="tab-pane active">
+      <div id="inbox-list" class="msg-list"></div>
+    </div>
+    <div id="tab-send" class="tab-pane">
+      <div class="card">
+        <p class="enc-notice">🔐 Pesan dienkripsi di browsermu sebelum dikirim. Server hanya menyimpan ciphertext.</p>
+        <div class="field">
+          <label>Kirim ke</label>
+          <select id="send-to"><option value="">— Pilih teman —</option></select>
+        </div>
+        <div class="field">
+          <label>Pesan <span class="hint">(1 kalimat tentang mereka)</span></label>
+          <textarea id="send-msg" placeholder="Tulis sesuatu yang jujur dan positif..."></textarea>
+        </div>
+        <button class="btn btn-primary" id="btn-send" onclick="sendMsg()">🔐 Enkripsi &amp; Kirim</button>
+        <div id="send-result"></div>
+      </div>
+      <div class="sent-section">
+        <p class="section-label">Sudah kamu kirimi:</p>
+        <div id="sent-to-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: ADMIN APP ═══ -->
+<div id="screen-admin" class="screen">
+  <header class="app-header admin-header">
+    <div class="header-left">
+      <span class="admin-badge">⚙️ Admin Panel</span>
+    </div>
+    <button class="btn-icon" onclick="doAdminLogout()" title="Keluar">🚪</button>
+  </header>
+  <div class="tab-bar">
+    <button class="tab active" onclick="adminTab(this,'atab-fase')">🎛️ Fase</button>
+    <button class="tab" onclick="adminTab(this,'atab-users')">👥 Siswa</button>
+    <button class="tab" onclick="adminTab(this,'atab-add')">➕ Tambah</button>
+    <button class="tab" onclick="adminTab(this,'atab-msgs')">🗃️ Pesan</button>
+    <button class="tab" onclick="adminTab(this,'atab-backup')">💾 Backup</button>
+  </div>
+  <div class="tab-content">
+
+    <!-- FASE CONTROL -->
+    <div id="atab-fase" class="tab-pane active">
+      <div class="card phase-card">
+        <div class="phase-row">
+          <div class="phase-info">
+            <div class="phase-title">✉️ Fase Pengisian</div>
+            <div class="phase-desc">Siswa bisa mengirim pesan ke teman-teman</div>
+            <div class="phase-status" id="phase-send-status"></div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-send" onchange="togglePhase('send')"/>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr class="divider"/>
+        <div class="phase-row">
+          <div class="phase-info">
+            <div class="phase-title">📬 Fase Pembacaan</div>
+            <div class="phase-desc">Siswa bisa membaca pesan yang diterima</div>
+            <div class="phase-status" id="phase-read-status"></div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-read" onchange="togglePhase('read')"/>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="phase-title" style="margin-bottom:8px">📋 Panduan Alur</div>
+        <div class="timeline">
+          <div class="tl-item"><span class="tl-dot">1</span><div><strong>Buka Fase Pengisian</strong><br><small>Siswa mulai menulis pesan ke teman-teman</small></div></div>
+          <div class="tl-item"><span class="tl-dot">2</span><div><strong>Tutup Fase Pengisian</strong><br><small>Semua pesan sudah masuk, tidak bisa kirim lagi</small></div></div>
+          <div class="tl-item"><span class="tl-dot">3</span><div><strong>Buka Fase Pembacaan</strong><br><small>Siswa bisa membaca semua pesan yang diterima</small></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DAFTAR SISWA -->
+    <div id="atab-users" class="tab-pane">
+      <div id="admin-user-list"></div>
+    </div>
+
+    <!-- TAMBAH SISWA -->
+    <div id="atab-add" class="tab-pane">
+      <div class="card">
+        <h2 class="card-title">Tambah Siswa</h2>
+        <p class="hint-text">Cukup masukkan nama. Siswa akan membuat password sendiri saat pertama kali login.</p>
+        <div class="field"><label>Nama Lengkap</label>
+          <input type="text" id="new-name" placeholder="Contoh: Budi Santoso"
+                 onkeydown="if(event.key==='Enter')addUser()"/></div>
+        <button class="btn btn-primary" onclick="addUser()">Tambah Siswa</button>
+        <div id="add-result"></div>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <h2 class="card-title">Import Massal</h2>
+        <p class="hint-text">Satu nama per baris. Siswa tetap membuat password sendiri.</p>
+        <textarea id="bulk-csv" placeholder="Andi Pratama&#10;Budi Santoso&#10;Citra Dewi" style="height:120px"></textarea>
+        <button class="btn btn-secondary" onclick="bulkImport()">Import Nama</button>
+        <div id="bulk-result"></div>
+      </div>
+    </div>
+
+    <!-- DATABASE PESAN -->
+    <div id="atab-msgs" class="tab-pane">
+      <div class="enc-notice" style="margin-bottom:12px">🔐 Isi pesan tidak dapat dibaca — hanya metadata yang terlihat.</div>
+      <div id="admin-msg-list" class="msg-list"></div>
+    </div>
+
+    <!-- BACKUP -->
+    <div id="atab-backup" class="tab-pane">
+      <div class="card">
+        <h2 class="card-title">Backup Database</h2>
+        <p class="hint-text">Backup otomatis berjalan tiap hari pukul 02.00 WIB ke Google Drive.</p>
+        <button class="btn btn-primary" onclick="triggerBackup()">💾 Backup Sekarang</button>
+        <div id="backup-result"></div>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <h2 class="card-title">Riwayat Backup</h2>
+        <div id="backup-log-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL password -->
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Tutup</button>
+      <button class="btn btn-primary" id="modal-confirm-btn" style="display:none">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/crypto.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
