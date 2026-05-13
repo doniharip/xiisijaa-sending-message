@@ -1,228 +1,299 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Pesan Rahasia Kelas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
 
-<!-- ═══ SCREEN: PILIH NAMA ═══ -->
+<!-- ═══ LOGIN ═══ -->
 <div id="screen-login" class="screen active">
   <div class="auth-wrap">
-    <div class="auth-logo">🔒</div>
+    <button class="auth-theme-btn" onclick="toggleTheme()" title="Ganti tema">
+      <span id="theme-icon">☀</span>
+    </button>
+    <div class="auth-logo">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    </div>
     <h1>Pesan Rahasia Kelas</h1>
-    <p class="subtitle">Pilih namamu untuk mulai</p>
+    <p class="auth-sub">Setiap pesan terenkripsi — hanya kamu yang bisa membacanya</p>
     <div class="card">
       <div class="field">
         <label>Nama</label>
         <select id="login-name" onchange="onNameChange()">
-          <option value="">— Pilih namamu —</option>
+          <option value="">Pilih namamu</option>
         </select>
       </div>
-      <!-- Tampil jika sudah setup password -->
-      <div id="login-pass-section" style="display:none">
+      <div id="login-pass-section" style="display:none" class="field-group">
         <div class="field">
-          <label>Password</label>
-          <input type="password" id="login-pass" placeholder="Masukkan password"/>
-          <div class="error" id="login-error"></div>
+          <label>Kata Sandi</label>
+          <div class="input-wrap">
+            <input type="password" id="login-pass" placeholder="Masukkan kata sandi"/>
+            <button class="input-eye" onclick="togglePwd('login-pass',this)" tabindex="-1" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field-error" id="login-error"></div>
         </div>
-        <button class="btn btn-primary" onclick="doLogin()">Masuk →</button>
+        <button class="btn btn-primary" onclick="doLogin()">Masuk</button>
       </div>
-      <!-- Tampil jika belum setup password -->
-      <div id="login-setup-section" style="display:none">
-        <div class="notice notice-info">
-          👋 Halo! Ini pertama kalinya kamu login.<br>Buat password untuk akunmu.
+      <div id="login-setup-section" style="display:none" class="field-group">
+        <div class="notice notice-blue">Pertama kali login — buat kata sandi untuk akunmu.</div>
+        <div class="field">
+          <label>Buat Kata Sandi</label>
+          <div class="input-wrap">
+            <input type="password" id="setup-pass" placeholder="Minimal 4 karakter"/>
+            <button class="input-eye" onclick="togglePwd('setup-pass',this)" tabindex="-1" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
         <div class="field">
-          <label>Buat Password Baru</label>
-          <input type="password" id="setup-pass" placeholder="Minimal 4 karakter"/>
+          <label>Konfirmasi Kata Sandi</label>
+          <input type="password" id="setup-pass2" placeholder="Ulangi kata sandi"/>
+          <div class="field-error" id="setup-error"></div>
         </div>
-        <div class="field">
-          <label>Konfirmasi Password</label>
-          <input type="password" id="setup-pass2" placeholder="Ulangi password"/>
-          <div class="error" id="setup-error"></div>
-        </div>
-        <button class="btn btn-primary" onclick="doSetup()">Buat Password & Masuk →</button>
+        <button class="btn btn-primary" onclick="doSetup()">Buat & Masuk</button>
       </div>
     </div>
-    <p class="link-hint">Admin? <a href="#" onclick="showScreen('screen-admin-login')">Masuk sebagai admin</a></p>
+    <p class="auth-link">Admin? <a href="#" onclick="showScreen('screen-admin-login')">Masuk sebagai admin</a></p>
   </div>
 </div>
 
-<!-- ═══ SCREEN: ADMIN LOGIN ═══ -->
+<!-- ═══ ADMIN LOGIN ═══ -->
 <div id="screen-admin-login" class="screen">
   <div class="auth-wrap">
-    <div class="auth-logo">⚙️</div>
-    <h1>Admin Panel</h1>
-    <p class="subtitle">Kelola akun dan fase pengisian/pembacaan</p>
+    <button class="auth-theme-btn" onclick="toggleTheme()" title="Ganti tema">
+      <span class="theme-icon-sync"></span>
+    </button>
+    <div class="auth-logo">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        <path d="M18 14l1.5 1.5L22 13" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>Panel Admin</h1>
+    <p class="auth-sub">Kelola peserta dan waktu pengisian</p>
     <div class="card">
       <div class="field">
-        <label>Password Admin</label>
-        <input type="password" id="admin-pass" placeholder="Password admin"
-               onkeydown="if(event.key==='Enter')doAdminLogin()"/>
-        <div class="error" id="admin-error"></div>
+        <label>Kata Sandi Admin</label>
+        <div class="input-wrap">
+          <input type="password" id="admin-pass" placeholder="Masukkan kata sandi"
+                 onkeydown="if(event.key==='Enter')doAdminLogin()"/>
+          <button class="input-eye" onclick="togglePwd('admin-pass',this)" tabindex="-1" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="field-error" id="admin-error"></div>
       </div>
       <button class="btn btn-primary" onclick="doAdminLogin()">Masuk</button>
-      <button class="btn btn-ghost" onclick="showScreen('screen-login')">← Kembali</button>
+      <button class="btn btn-ghost" onclick="showScreen('screen-login')">Kembali</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ SCREEN: USER APP ═══ -->
+<!-- ═══ USER APP ═══ -->
 <div id="screen-user" class="screen">
-  <header class="app-header">
-    <div class="header-left">
+  <header class="topbar">
+    <div class="topbar-left">
       <div class="avatar" id="user-avatar"></div>
-      <span class="header-name" id="user-name-display"></span>
+      <span class="topbar-name" id="user-name-display"></span>
     </div>
-    <button class="btn-icon" onclick="doLogout()" title="Keluar">🚪</button>
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="toggleTheme()" id="theme-toggle-user" title="Ganti tema">
+        <span id="theme-icon">☀</span>
+      </button>
+      <button class="icon-btn" onclick="doLogout()" title="Keluar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
-  <!-- Banner fase ditutup -->
-  <div id="banner-send-closed" class="phase-banner banner-warn" style="display:none">
-    🔒 <strong>Fase pengisian ditutup.</strong> Kamu tidak bisa mengirim pesan saat ini.
+  <div id="banner-send-closed" class="banner banner-warn" style="display:none">
+    Waktu pengisian pesan sudah ditutup oleh admin.
   </div>
-  <div id="banner-read-closed" class="phase-banner banner-warn" style="display:none">
-    🔒 <strong>Fase pembacaan belum dibuka.</strong> Pesanmu akan bisa dibaca setelah admin membukanya.
+  <div id="banner-read-closed" class="banner banner-warn" style="display:none">
+    Waktu pembacaan belum dibuka — pesanmu akan tersedia setelah admin membukanya.
   </div>
 
-  <div class="tab-bar">
-    <button class="tab active" id="tab-btn-inbox" onclick="userTab(this,'tab-inbox')">📬 Pesanku</button>
-    <button class="tab" id="tab-btn-send" onclick="userTab(this,'tab-send')">✉️ Kirim Pesan</button>
-  </div>
-  <div class="tab-content">
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="userTab(this,'tab-inbox')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      Pesan Masuk
+    </button>
+    <button class="tab-btn" onclick="userTab(this,'tab-send')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Kirim Pesan
+    </button>
+  </nav>
+
+  <div class="page-body">
     <div id="tab-inbox" class="tab-pane active">
-      <div id="inbox-list" class="msg-list"></div>
+      <div id="inbox-list"></div>
     </div>
     <div id="tab-send" class="tab-pane">
       <div class="card">
-        <p class="enc-notice">🔐 Pesan dienkripsi di browsermu sebelum dikirim. Server hanya menyimpan ciphertext.</p>
-        <div class="field">
-          <label>Kirim ke</label>
-          <select id="send-to"><option value="">— Pilih teman —</option></select>
+        <div class="notice notice-amber">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Pesan dienkripsi di browser sebelum dikirim. Server tidak bisa membaca isinya.
         </div>
         <div class="field">
-          <label>Pesan <span class="hint">(1 kalimat tentang mereka)</span></label>
-          <textarea id="send-msg" placeholder="Tulis sesuatu yang jujur dan positif..."></textarea>
+          <label>Kepada</label>
+          <select id="send-to"><option value="">Pilih teman</option></select>
         </div>
-        <button class="btn btn-primary" id="btn-send" onclick="sendMsg()">🔐 Enkripsi &amp; Kirim</button>
+        <div class="field">
+          <label>Pesan <span class="label-hint">— 1 kalimat tentang mereka</span></label>
+          <textarea id="send-msg" placeholder="Tulis sesuatu yang tulus dan jujur..."></textarea>
+        </div>
+        <button class="btn btn-primary" id="btn-send" onclick="sendMsg()">Kirim Anonim</button>
         <div id="send-result"></div>
       </div>
       <div class="sent-section">
-        <p class="section-label">Sudah kamu kirimi:</p>
+        <p class="section-label">Sudah dikirim ke:</p>
         <div id="sent-to-list"></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══ SCREEN: ADMIN APP ═══ -->
+<!-- ═══ ADMIN APP ═══ -->
 <div id="screen-admin" class="screen">
-  <header class="app-header admin-header">
-    <div class="header-left">
-      <span class="admin-badge">⚙️ Admin Panel</span>
+  <header class="topbar topbar-admin">
+    <div class="topbar-left">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      <span class="topbar-name">Admin</span>
     </div>
-    <button class="btn-icon" onclick="doAdminLogout()" title="Keluar">🚪</button>
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="toggleTheme()" id="theme-toggle-admin" title="Ganti tema">
+        <span class="theme-icon-sync"></span>
+      </button>
+      <button class="icon-btn" onclick="doAdminLogout()" title="Keluar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>
   </header>
-  <div class="tab-bar">
-    <button class="tab active" onclick="adminTab(this,'atab-fase')">🎛️ Fase</button>
-    <button class="tab" onclick="adminTab(this,'atab-users')">👥 Siswa</button>
-    <button class="tab" onclick="adminTab(this,'atab-add')">➕ Tambah</button>
-    <button class="tab" onclick="adminTab(this,'atab-msgs')">🗃️ Pesan</button>
-    <button class="tab" onclick="adminTab(this,'atab-backup')">💾 Backup</button>
-  </div>
-  <div class="tab-content">
 
-    <!-- FASE CONTROL -->
+  <nav class="tab-nav tab-nav-scroll">
+    <button class="tab-btn active" onclick="adminTab(this,'atab-fase')">Fase</button>
+    <button class="tab-btn" onclick="adminTab(this,'atab-users')">Peserta</button>
+    <button class="tab-btn" onclick="adminTab(this,'atab-add')">Tambah</button>
+    <button class="tab-btn" onclick="adminTab(this,'atab-msgs')">Database</button>
+    <button class="tab-btn" onclick="adminTab(this,'atab-backup')">Backup</button>
+  </nav>
+
+  <div class="page-body">
+    <!-- FASE -->
     <div id="atab-fase" class="tab-pane active">
       <div class="card phase-card">
         <div class="phase-row">
           <div class="phase-info">
-            <div class="phase-title">✉️ Fase Pengisian</div>
-            <div class="phase-desc">Siswa bisa mengirim pesan ke teman-teman</div>
-            <div class="phase-status" id="phase-send-status"></div>
+            <div class="phase-label">Waktu Pengisian</div>
+            <div class="phase-desc">Peserta bisa mengirim pesan ke teman-teman</div>
+            <div class="phase-pill" id="phase-send-status"></div>
           </div>
-          <label class="toggle">
+          <label class="switch">
             <input type="checkbox" id="toggle-send" onchange="togglePhase('send')"/>
-            <span class="toggle-slider"></span>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
           </label>
         </div>
-        <hr class="divider"/>
+        <div class="phase-divider"></div>
         <div class="phase-row">
           <div class="phase-info">
-            <div class="phase-title">📬 Fase Pembacaan</div>
-            <div class="phase-desc">Siswa bisa membaca pesan yang diterima</div>
-            <div class="phase-status" id="phase-read-status"></div>
+            <div class="phase-label">Waktu Pembacaan</div>
+            <div class="phase-desc">Peserta bisa membaca semua pesan yang diterima</div>
+            <div class="phase-pill" id="phase-read-status"></div>
           </div>
-          <label class="toggle">
+          <label class="switch">
             <input type="checkbox" id="toggle-read" onchange="togglePhase('read')"/>
-            <span class="toggle-slider"></span>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
           </label>
         </div>
       </div>
+
       <div class="card" style="margin-top:12px">
-        <div class="phase-title" style="margin-bottom:8px">📋 Panduan Alur</div>
-        <div class="timeline">
-          <div class="tl-item"><span class="tl-dot">1</span><div><strong>Buka Fase Pengisian</strong><br><small>Siswa mulai menulis pesan ke teman-teman</small></div></div>
-          <div class="tl-item"><span class="tl-dot">2</span><div><strong>Tutup Fase Pengisian</strong><br><small>Semua pesan sudah masuk, tidak bisa kirim lagi</small></div></div>
-          <div class="tl-item"><span class="tl-dot">3</span><div><strong>Buka Fase Pembacaan</strong><br><small>Siswa bisa membaca semua pesan yang diterima</small></div></div>
+        <p class="card-label">Alur Acara</p>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div><div class="step-title">Buka Waktu Pengisian</div><div class="step-desc">Semua peserta menulis pesan untuk teman-temannya</div></div></div>
+          <div class="step"><div class="step-num">2</div><div><div class="step-title">Tutup Waktu Pengisian</div><div class="step-desc">Tidak ada pesan baru yang bisa masuk</div></div></div>
+          <div class="step"><div class="step-num">3</div><div><div class="step-title">Buka Waktu Pembacaan</div><div class="step-desc">Semua peserta membaca pesan yang mereka terima</div></div></div>
         </div>
       </div>
     </div>
 
-    <!-- DAFTAR SISWA -->
+    <!-- PESERTA -->
     <div id="atab-users" class="tab-pane">
       <div id="admin-user-list"></div>
     </div>
 
-    <!-- TAMBAH SISWA -->
+    <!-- TAMBAH -->
     <div id="atab-add" class="tab-pane">
       <div class="card">
-        <h2 class="card-title">Tambah Siswa</h2>
-        <p class="hint-text">Cukup masukkan nama. Siswa akan membuat password sendiri saat pertama kali login.</p>
-        <div class="field"><label>Nama Lengkap</label>
+        <p class="card-label">Tambah Satu Peserta</p>
+        <p class="card-desc">Cukup masukkan nama. Peserta membuat kata sandi sendiri saat pertama login.</p>
+        <div class="field">
+          <label>Nama Lengkap</label>
           <input type="text" id="new-name" placeholder="Contoh: Budi Santoso"
-                 onkeydown="if(event.key==='Enter')addUser()"/></div>
-        <button class="btn btn-primary" onclick="addUser()">Tambah Siswa</button>
+                 onkeydown="if(event.key==='Enter')addUser()"/>
+        </div>
+        <button class="btn btn-primary" onclick="addUser()">Tambah Peserta</button>
         <div id="add-result"></div>
       </div>
-      <div class="card" style="margin-top:1rem">
-        <h2 class="card-title">Import Massal</h2>
-        <p class="hint-text">Satu nama per baris. Siswa tetap membuat password sendiri.</p>
-        <textarea id="bulk-csv" placeholder="Andi Pratama&#10;Budi Santoso&#10;Citra Dewi" style="height:120px"></textarea>
+      <div class="card" style="margin-top:12px">
+        <p class="card-label">Import Massal</p>
+        <p class="card-desc">Satu nama per baris.</p>
+        <textarea id="bulk-csv" placeholder="Andi Pratama&#10;Budi Santoso&#10;Citra Dewi"></textarea>
         <button class="btn btn-secondary" onclick="bulkImport()">Import Nama</button>
         <div id="bulk-result"></div>
       </div>
     </div>
 
-    <!-- DATABASE PESAN -->
+    <!-- DATABASE -->
     <div id="atab-msgs" class="tab-pane">
-      <div class="enc-notice" style="margin-bottom:12px">🔐 Isi pesan tidak dapat dibaca — hanya metadata yang terlihat.</div>
-      <div id="admin-msg-list" class="msg-list"></div>
+      <div class="notice notice-amber" style="margin-bottom:12px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Isi pesan tidak dapat dibaca — server hanya menyimpan ciphertext.
+      </div>
+      <div id="admin-msg-list"></div>
     </div>
 
     <!-- BACKUP -->
     <div id="atab-backup" class="tab-pane">
       <div class="card">
-        <h2 class="card-title">Backup Database</h2>
-        <p class="hint-text">Backup otomatis berjalan tiap hari pukul 02.00 WIB ke Google Drive.</p>
-        <button class="btn btn-primary" onclick="triggerBackup()">💾 Backup Sekarang</button>
+        <p class="card-label">Backup Database</p>
+        <p class="card-desc">Backup otomatis berjalan tiap hari pukul 02.00 WIB ke Google Drive.</p>
+        <button class="btn btn-primary" onclick="triggerBackup()">Backup Sekarang</button>
         <div id="backup-result"></div>
       </div>
-      <div class="card" style="margin-top:1rem">
-        <h2 class="card-title">Riwayat Backup</h2>
+      <div class="card" style="margin-top:12px">
+        <p class="card-label">Riwayat Backup</p>
         <div id="backup-log-list"></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- MODAL password -->
+<!-- MODAL -->
 <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <h3 id="modal-title"></h3>
+    <div class="modal-head">
+      <h3 id="modal-title"></h3>
+      <button class="icon-btn" onclick="closeModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
     <div id="modal-body"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Tutup</button>

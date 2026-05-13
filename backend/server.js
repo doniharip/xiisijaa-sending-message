@@ -254,15 +254,7 @@ app.post('/api/admin/users', authAdmin, async (req, res) => {
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
-// Lihat password user
-app.get('/api/admin/users/:name/password', authAdmin, async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      'SELECT plain_password, is_setup FROM users WHERE name = ?', [req.params.name]);
-    if (!rows.length) return res.status(404).json({ error: 'User tidak ditemukan' });
-    res.json({ password: rows[0].plain_password, is_setup: rows[0].is_setup });
-  } catch { res.status(500).json({ error: 'Server error' }); }
-});
+// Endpoint lihat password dihapus — admin hanya bisa reset, tidak melihat
 
 // Reset password (admin reset, user harus setup ulang)
 app.put('/api/admin/users/:name/reset-password', authAdmin, async (req, res) => {

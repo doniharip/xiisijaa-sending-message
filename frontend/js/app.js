@@ -2,100 +2,137 @@
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function initials(n){return n.split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('')}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
-function setResult(id,msg,type='success'){
-  const el=document.getElementById(id); if(!el)return;
-  el.innerHTML=`<div class="${type==='success'?'success-msg':'error-msg'}">${msg}</div>`;
-  if(type==='success') setTimeout(()=>{if(el)el.innerHTML=''},4000);
-}
-function fmtDate(iso){return new Date(iso).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+function fmtDate(iso){return new Date(iso).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
 
-// ─── LOGIN / SETUP FLOW ────────────────────────────────────────
-async function onNameChange(){
-  const name=document.getElementById('login-name').value;
-  const passSection=document.getElementById('login-pass-section');
-  const setupSection=document.getElementById('login-setup-section');
-  passSection.style.display='none';
-  setupSection.style.display='none';
-  document.getElementById('login-error').textContent='';
-  if(!name) return;
-  try{
-    const data=await API.checkName(name);
-    if(data.is_setup){
-      passSection.style.display='block';
-      setTimeout(()=>document.getElementById('login-pass').focus(),50);
-    } else {
-      setupSection.style.display='block';
-      setTimeout(()=>document.getElementById('setup-pass').focus(),50);
-    }
-  } catch(err){
-    document.getElementById('login-error').textContent=err.message;
+function setResult(id, msg, type='success'){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.innerHTML = `<div class="${type==='success'?'result-success':'result-error'}">${msg}</div>`;
+  if(type==='success') setTimeout(()=>{if(el) el.innerHTML=''},4000);
+}
+
+function togglePwd(inputId, btn){
+  const inp = document.getElementById(inputId);
+  if(inp.type==='password'){
+    inp.type='text';
+    btn.innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  } else {
+    inp.type='password';
+    btn.innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
   }
 }
 
-async function doSetup(){
-  const name=document.getElementById('login-name').value;
-  const pass=document.getElementById('setup-pass').value;
-  const pass2=document.getElementById('setup-pass2').value;
-  const err=document.getElementById('setup-error');
-  err.textContent='';
-  if(pass.length<4){err.textContent='Password minimal 4 karakter.';return}
-  if(pass!==pass2){err.textContent='Password tidak sama.';return}
+// ─── THEME ────────────────────────────────────────────────────
+function syncThemeIcons(theme){
+  const icon = theme === 'dark' ? '☾' : '☀';
+  // Update semua elemen theme icon (ada di login, user topbar, admin topbar)
+  document.querySelectorAll('#theme-icon, .theme-icon-sync').forEach(el => {
+    el.textContent = icon;
+  });
+}
+
+function toggleTheme(){
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('sn_theme', newTheme);
+  syncThemeIcons(newTheme);
+}
+
+function initTheme(){
+  const saved = localStorage.getItem('sn_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  syncThemeIcons(theme);
+}
+
+// ─── AUTH ──────────────────────────────────────────────────────
+async function onNameChange(){
+  const name = document.getElementById('login-name').value;
+  document.getElementById('login-pass-section').style.display = 'none';
+  document.getElementById('login-setup-section').style.display = 'none';
+  document.getElementById('login-error').textContent = '';
+  if(!name) return;
   try{
-    const data=await API.setupPassword(name,pass);
+    const data = await API.checkName(name);
+    if(data.is_setup){
+      document.getElementById('login-pass-section').style.display = 'block';
+      setTimeout(()=>document.getElementById('login-pass').focus(), 50);
+    } else {
+      document.getElementById('login-setup-section').style.display = 'block';
+      setTimeout(()=>document.getElementById('setup-pass').focus(), 50);
+    }
+  } catch(err){ document.getElementById('login-error').textContent = err.message; }
+}
+
+async function doSetup(){
+  const name  = document.getElementById('login-name').value;
+  const pass  = document.getElementById('setup-pass').value;
+  const pass2 = document.getElementById('setup-pass2').value;
+  const errEl = document.getElementById('setup-error');
+  errEl.textContent = '';
+  if(pass.length < 4){ errEl.textContent = 'Kata sandi minimal 4 karakter.'; return; }
+  if(pass !== pass2) { errEl.textContent = 'Kata sandi tidak sama.'; return; }
+  try{
+    const data = await API.setupPassword(name, pass);
     API.setToken(data.token);
-    localStorage.setItem('sn_user',name);
-    localStorage.setItem('sn_pass',pass);
+    localStorage.setItem('sn_user', name);
+    localStorage.setItem('sn_pass', pass);
     await initUserScreen(name);
-  } catch(e){err.textContent=e.message}
+  } catch(e){ errEl.textContent = e.message; }
 }
 
 async function doLogin(){
-  const name=document.getElementById('login-name').value;
-  const pass=document.getElementById('login-pass').value;
-  const err=document.getElementById('login-error');
-  err.textContent='';
-  if(!pass){err.textContent='Masukkan password.';return}
+  const name  = document.getElementById('login-name').value;
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if(!pass){ errEl.textContent = 'Masukkan kata sandi.'; return; }
   try{
-    const data=await API.loginUser(name,pass);
+    const data = await API.loginUser(name, pass);
     API.setToken(data.token);
-    localStorage.setItem('sn_user',name);
-    localStorage.setItem('sn_pass',pass);
+    localStorage.setItem('sn_user', name);
+    localStorage.setItem('sn_pass', pass);
     await initUserScreen(name);
-  } catch(e){err.textContent=e.message}
+  } catch(e){ errEl.textContent = e.message; }
 }
 
-document.addEventListener('keydown',e=>{
-  if(e.key!=='Enter') return;
-  if(document.getElementById('login-pass-section').style.display!=='none') doLogin();
-  if(document.getElementById('login-setup-section').style.display!=='none') doSetup();
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  const ps = document.getElementById('login-pass-section');
+  const ss = document.getElementById('login-setup-section');
+  if(ps && ps.style.display !== 'none') doLogin();
+  if(ss && ss.style.display !== 'none') doSetup();
 });
 
 async function doAdminLogin(){
-  const pass=document.getElementById('admin-pass').value;
-  const err=document.getElementById('admin-error');
-  err.textContent='';
+  const pass  = document.getElementById('admin-pass').value;
+  const errEl = document.getElementById('admin-error');
+  errEl.textContent = '';
   try{
-    const data=await API.loginAdmin(pass);
+    const data = await API.loginAdmin(pass);
     API.setToken(data.token);
-    localStorage.setItem('sn_role','admin');
+    localStorage.setItem('sn_role', 'admin');
     await loadAdminPhases();
     showScreen('screen-admin');
-  } catch(e){err.textContent=e.message}
+  } catch(e){ errEl.textContent = e.message; }
 }
 
 function doLogout(){
   API.clearToken();
-  document.getElementById('login-pass').value='';
-  document.getElementById('login-pass-section').style.display='none';
-  document.getElementById('login-setup-section').style.display='none';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-pass-section').style.display = 'none';
+  document.getElementById('login-setup-section').style.display = 'none';
   showScreen('screen-login');
 }
-function doAdminLogout(){API.clearToken();showScreen('screen-login')}
+
+function doAdminLogout(){ API.clearToken(); showScreen('screen-login'); }
 
 // ─── USER SCREEN ───────────────────────────────────────────────
 async function initUserScreen(name){
-  document.getElementById('user-name-display').textContent=name;
-  document.getElementById('user-avatar').textContent=initials(name);
+  document.getElementById('user-name-display').textContent = name;
+  document.getElementById('user-avatar').textContent = initials(name);
   await checkPhaseBanners();
   await loadUsers();
   await renderInbox();
@@ -104,328 +141,341 @@ async function initUserScreen(name){
 
 async function checkPhaseBanners(){
   try{
-    const phases=await API.getPhases();
-    const bannerSend=document.getElementById('banner-send-closed');
-    const bannerRead=document.getElementById('banner-read-closed');
-    bannerSend.style.display=phases.phase_send==='open'?'none':'block';
-    bannerRead.style.display=phases.phase_read==='open'?'none':'block';
-    // disable send button if phase closed
-    const btnSend=document.getElementById('btn-send');
-    if(btnSend) btnSend.disabled=phases.phase_send!=='open';
+    const p = await API.getPhases();
+    const bs = document.getElementById('banner-send-closed');
+    const br = document.getElementById('banner-read-closed');
+    if(bs) bs.style.display = p.phase_send === 'open' ? 'none' : 'block';
+    if(br) br.style.display = p.phase_read === 'open' ? 'none' : 'block';
+    const btn = document.getElementById('btn-send');
+    if(btn) btn.disabled = p.phase_send !== 'open';
   } catch{}
 }
 
 async function loadUsers(){
   try{
-    const [users,sent]=await Promise.all([API.getUsers(),API.getSent()]);
-    const sentSet=new Set(sent);
-    const sel=document.getElementById('send-to');
-    sel.innerHTML='<option value="">— Pilih teman —</option>';
-    users.forEach(name=>{
-      const o=document.createElement('option');
-      o.value=name;
-      if(sentSet.has(name)){o.textContent=name+' ✓';o.disabled=true;}
-      else o.textContent=name;
+    const [users, sent] = await Promise.all([API.getUsers(), API.getSent()]);
+    const sentSet = new Set(sent);
+    const sel = document.getElementById('send-to');
+    sel.innerHTML = '<option value="">Pilih teman</option>';
+    users.forEach(name => {
+      const o = document.createElement('option');
+      o.value = name;
+      if(sentSet.has(name)){ o.textContent = name + ' — sudah dikirim'; o.disabled = true; }
+      else o.textContent = name;
       sel.appendChild(o);
     });
   } catch{}
 }
 
 async function renderInbox(){
-  const el=document.getElementById('inbox-list');
-  el.innerHTML='<div class="loading">🔓 Mendekripsi pesan...</div>';
+  const el = document.getElementById('inbox-list');
+  el.innerHTML = '<div class="loading">Mendekripsi pesan...</div>';
   try{
-    const msgs=await API.getInbox();
+    const msgs = await API.getInbox();
     if(!msgs.length){
-      el.innerHTML='<div class="empty-state"><span class="icon">📭</span>Belum ada pesan.<br><small>Pesan akan muncul di sini setelah fase pembacaan dibuka.</small></div>';
+      el.innerHTML = `<div class="empty">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <span>Belum ada pesan untukmu.</span>
+        <small style="color:var(--text-3)">Pesan akan muncul saat waktu pembacaan dibuka.</small>
+      </div>`;
       return;
     }
-    const pass=localStorage.getItem('sn_pass');
-    const name=localStorage.getItem('sn_user');
-    const decrypted=await Promise.all(msgs.map(async m=>{
-      const plain=await Crypto.decrypt(m.ciphertext,pass,name);
-      return{...m,plain};
+    const pass = localStorage.getItem('sn_pass');
+    const name = localStorage.getItem('sn_user');
+    const items = await Promise.all(msgs.map(async (m, i) => {
+      const plain = await Crypto.decrypt(m.ciphertext, pass, name);
+      return {...m, plain, num: i+1};
     }));
-    el.innerHTML=decrypted.map(m=>`
+    el.innerHTML = `<div class="msg-list">${items.map(m=>`
       <div class="msg-card">
-        <span class="badge badge-anon">🕵️ Anonim</span>
-        <p class="msg-text">${m.plain!==null?esc(m.plain):'<em style="color:var(--red)">Gagal mendekripsi</em>'}</p>
-        <div class="msg-meta">${fmtDate(m.created_at)}</div>
-      </div>`).join('');
+        <div class="msg-head">
+          <span class="msg-num">#${m.num}</span>
+          <span class="msg-badge badge-anon">Anonim</span>
+        </div>
+        <p class="msg-text">${m.plain !== null ? esc(m.plain) : '<em style="color:var(--red)">Gagal mendekripsi</em>'}</p>
+        <div class="msg-date">${fmtDate(m.created_at)}</div>
+      </div>`).join('')}</div>`;
   } catch(err){
-    if(err.message.includes('belum dibuka')||err.message.includes('ditutup')){
-      el.innerHTML='<div class="empty-state"><span class="icon">🔒</span>Fase pembacaan belum dibuka oleh admin.</div>';
+    if(err.message.includes('belum dibuka') || err.message.includes('ditutup')){
+      el.innerHTML = `<div class="empty">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>Waktu pembacaan belum dibuka.</span>
+      </div>`;
     } else {
-      el.innerHTML=`<div class="empty-state">Gagal memuat: ${esc(err.message)}</div>`;
+      el.innerHTML = `<div class="empty">Gagal memuat: ${esc(err.message)}</div>`;
     }
   }
 }
 
 async function sendMsg(){
-  const to=document.getElementById('send-to').value;
-  const txt=document.getElementById('send-msg').value.trim();
-  const res=document.getElementById('send-result');
-  if(!to){setResult('send-result','Pilih penerima.','error');return}
-  if(!txt){setResult('send-result','Pesan tidak boleh kosong.','error');return}
-  res.innerHTML='<div class="loading">🔐 Mengenkripsi...</div>';
+  const to  = document.getElementById('send-to').value;
+  const txt = document.getElementById('send-msg').value.trim();
+  if(!to) { setResult('send-result','Pilih penerima.','error'); return; }
+  if(!txt){ setResult('send-result','Pesan tidak boleh kosong.','error'); return; }
+  const res = document.getElementById('send-result');
+  res.innerHTML = '<div class="loading">Mengenkripsi...</div>';
   try{
-    const keyData=await API.getRecipientKey(to);
-    const ciphertext=await Crypto.encrypt(txt,keyData.key,to);
-    await API.sendMessage(to,ciphertext);
-    document.getElementById('send-msg').value='';
-    document.getElementById('send-to').value='';
-    setResult('send-result','🔐 Terenkripsi &amp; terkirim secara anonim!');
+    const keyData   = await API.getRecipientKey(to);
+    const ciphertext = await Crypto.encrypt(txt, keyData.key, to);
+    await API.sendMessage(to, ciphertext);
+    document.getElementById('send-msg').value = '';
+    document.getElementById('send-to').value = '';
+    setResult('send-result','Pesan berhasil dikirim secara anonim.');
     await loadUsers();
-  } catch(err){
-    setResult('send-result',err.message,'error');
-  }
+    await renderSentTo();
+  } catch(err){ setResult('send-result', err.message, 'error'); }
 }
 
 async function renderSentTo(){
   try{
-    const sent=await API.getSent();
-    const el=document.getElementById('sent-to-list');
-    if(!sent.length){el.innerHTML='<span style="font-size:13px;color:var(--text-hint)">Belum ada.</span>';return}
-    el.innerHTML=sent.map(n=>`<span class="chip">✓ ${esc(n)}</span>`).join('');
+    const sent = await API.getSent();
+    const el   = document.getElementById('sent-to-list');
+    if(!sent.length){ el.innerHTML = '<span style="font-size:13px;color:var(--text-3)">Belum ada.</span>'; return; }
+    el.innerHTML = sent.map(n=>`<span class="chip">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      ${esc(n)}</span>`).join('');
   } catch{}
 }
 
 // ─── TABS ──────────────────────────────────────────────────────
-function userTab(btn,tabId){
-  document.querySelectorAll('#screen-user .tab').forEach(t=>t.classList.remove('active'));
+function userTab(btn, tabId){
+  document.querySelectorAll('#screen-user .tab-btn').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('#screen-user .tab-pane').forEach(p=>p.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
-  if(tabId==='tab-inbox'){checkPhaseBanners();renderInbox();}
-  if(tabId==='tab-send'){checkPhaseBanners();loadUsers();renderSentTo();}
+  if(tabId==='tab-inbox'){ checkPhaseBanners(); renderInbox(); }
+  if(tabId==='tab-send') { checkPhaseBanners(); loadUsers(); renderSentTo(); }
 }
-function adminTab(btn,tabId){
-  document.querySelectorAll('#screen-admin .tab').forEach(t=>t.classList.remove('active'));
+
+function adminTab(btn, tabId){
+  document.querySelectorAll('#screen-admin .tab-btn').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('#screen-admin .tab-pane').forEach(p=>p.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
-  if(tabId==='atab-fase') loadAdminPhases();
+  if(tabId==='atab-fase')  loadAdminPhases();
   if(tabId==='atab-users') loadAdminUsers();
-  if(tabId==='atab-msgs') loadAdminMsgs();
-  if(tabId==='atab-backup') loadBackupLogs();
+  if(tabId==='atab-msgs')  loadAdminMsgs();
+  if(tabId==='atab-backup')loadBackupLogs();
 }
 
 // ─── ADMIN: FASE ───────────────────────────────────────────────
 async function loadAdminPhases(){
   try{
-    const s=await API.adminGetSettings();
-    const chkSend=document.getElementById('toggle-send');
-    const chkRead=document.getElementById('toggle-read');
-    if(chkSend) chkSend.checked=s.phase_send==='open';
-    if(chkRead) chkRead.checked=s.phase_read==='open';
-    updatePhaseStatus('send',s.phase_send);
-    updatePhaseStatus('read',s.phase_read);
+    const s = await API.adminGetSettings();
+    const cs = document.getElementById('toggle-send');
+    const cr = document.getElementById('toggle-read');
+    if(cs) cs.checked = s.phase_send === 'open';
+    if(cr) cr.checked = s.phase_read === 'open';
+    updatePhaseUI('send', s.phase_send);
+    updatePhaseUI('read', s.phase_read);
   } catch{}
 }
 
-function updatePhaseStatus(phase,value){
-  const el=document.getElementById(`phase-${phase}-status`);
+function updatePhaseUI(phase, val){
+  const el = document.getElementById(`phase-${phase}-status`);
   if(!el) return;
-  if(value==='open'){
-    el.textContent='● Sedang terbuka';
-    el.className='phase-status status-open';
+  if(val === 'open'){
+    el.textContent = 'Terbuka';
+    el.className   = 'phase-pill phase-open';
   } else {
-    el.textContent='● Tertutup';
-    el.className='phase-status status-closed';
+    el.textContent = 'Tertutup';
+    el.className   = 'phase-pill phase-closed';
   }
 }
 
 async function togglePhase(phase){
-  const chk=document.getElementById(`toggle-${phase}`);
-  const newVal=chk.checked?'open':'closed';
+  const chk = document.getElementById(`toggle-${phase}`);
+  const val = chk.checked ? 'open' : 'closed';
   try{
-    await API.adminSetSettings({[`phase_${phase}`]:newVal});
-    updatePhaseStatus(phase,newVal);
+    await API.adminSetSettings({[`phase_${phase}`]: val});
+    updatePhaseUI(phase, val);
   } catch(err){
-    alert('Gagal mengubah fase: '+err.message);
-    chk.checked=!chk.checked; // revert
+    alert('Gagal: ' + err.message);
+    chk.checked = !chk.checked;
   }
 }
 
 // ─── ADMIN: USERS ──────────────────────────────────────────────
 async function loadAdminUsers(){
-  const el=document.getElementById('admin-user-list');
+  const el = document.getElementById('admin-user-list');
   if(!el) return;
-  el.innerHTML='<div class="loading">Memuat...</div>';
+  el.innerHTML = '<div class="loading">Memuat...</div>';
   try{
-    const users=await API.adminGetUsers();
-    if(!users.length){el.innerHTML='<div class="empty-state"><span class="icon">👥</span>Belum ada siswa.</div>';return}
-    el.innerHTML=users.map(u=>`
+    const users = await API.adminGetUsers();
+    if(!users.length){
+      el.innerHTML = `<div class="empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Belum ada peserta terdaftar.</span>
+      </div>`;
+      return;
+    }
+    el.innerHTML = `<div class="user-table">${users.map(u=>`
       <div class="user-row">
-        <div class="user-info">
+        <div class="user-left">
           <div class="avatar">${initials(u.name)}</div>
           <div>
             <div class="user-name">${esc(u.name)}</div>
-            <span class="setup-badge ${u.is_setup?'setup-done':'setup-pending'}">
-              ${u.is_setup?'✓ Sudah setup password':'⏳ Belum setup password'}
+            <span class="status-pill ${u.is_setup?'pill-ok':'pill-pending'}">
+              ${u.is_setup?'Password sudah dibuat':'Menunggu setup password'}
             </span>
-            <div class="user-stats">📨 ${u.received??0} diterima · 📤 ${u.sent??0} terkirim</div>
+            <div class="user-meta">${u.received??0} diterima &middot; ${u.sent??0} dikirim</div>
           </div>
         </div>
         <div class="user-actions">
           ${u.is_setup
-            ?`<button class="btn btn-sm btn-secondary" onclick="showPasswordModal('${esc(u.name)}')">🔑</button>`
-            :`<span style="font-size:12px;color:var(--text-hint)">Belum ada password</span>`}
-          <button class="btn btn-sm btn-danger" onclick="deleteUser('${esc(u.name)}')">🗑️</button>
+            ? `<button class="btn btn-sm btn-secondary" onclick="showPasswordModal('${esc(u.name)}')">Reset Sandi</button>`
+            : ''}
+          <button class="btn btn-sm btn-danger" onclick="deleteUser('${esc(u.name)}')">Hapus</button>
         </div>
-      </div>`).join('');
-  } catch(err){el.innerHTML=`<div class="empty-state">Error: ${esc(err.message)}</div>`}
+      </div>`).join('')}</div>`;
+  } catch(err){ el.innerHTML = `<div class="empty">Error: ${esc(err.message)}</div>`; }
 }
 
 async function addUser(){
-  const name=document.getElementById('new-name').value.trim();
-  if(!name){setResult('add-result','Isi nama siswa.','error');return}
+  const name = document.getElementById('new-name').value.trim();
+  if(!name){ setResult('add-result','Isi nama peserta.','error'); return; }
   try{
     await API.adminAddUser(name);
-    document.getElementById('new-name').value='';
-    setResult('add-result',`✓ ${esc(name)} ditambahkan! Mereka bisa login dan buat password sendiri.`);
+    document.getElementById('new-name').value = '';
+    setResult('add-result', `${esc(name)} berhasil ditambahkan.`);
     await loadAdminUsers();
     await refreshLoginSelect();
-  } catch(err){setResult('add-result',err.message,'error')}
+  } catch(err){ setResult('add-result', err.message, 'error'); }
 }
 
 async function bulkImport(){
-  const raw=document.getElementById('bulk-csv').value.trim();
-  if(!raw){setResult('bulk-result','Isi nama dulu.','error');return}
-  const names=raw.split('\n').map(l=>l.trim()).filter(Boolean);
-  let ok=0,fail=0,skipped=0;
+  const raw = document.getElementById('bulk-csv').value.trim();
+  if(!raw){ setResult('bulk-result','Isi nama dulu.','error'); return; }
+  const names = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  let ok=0, skip=0, fail=0;
   for(const name of names){
-    if(!name){skipped++;continue}
-    try{await API.adminAddUser(name);ok++;}
-    catch(e){e.message.includes('sudah')?skipped++:fail++;}
+    try{ await API.adminAddUser(name); ok++; }
+    catch(e){ e.message.includes('sudah') ? skip++ : fail++; }
   }
-  setResult('bulk-result',`✓ ${ok} ditambahkan · ${skipped} sudah ada · ${fail} gagal`,ok>0?'success':'error');
-  document.getElementById('bulk-csv').value='';
+  setResult('bulk-result', `${ok} ditambahkan · ${skip} sudah ada · ${fail} gagal`, ok>0?'success':'error');
+  document.getElementById('bulk-csv').value = '';
   await loadAdminUsers();
   await refreshLoginSelect();
 }
 
 async function deleteUser(name){
-  if(!confirm(`Hapus ${name}? Semua pesan terkait juga dihapus.`)) return;
+  if(!confirm(`Hapus ${name}? Semua pesan terkait ikut terhapus.`)) return;
   try{
     await API.adminDeleteUser(name);
     await loadAdminUsers();
     await refreshLoginSelect();
-  } catch(err){alert('Gagal: '+err.message)}
+  } catch(err){ alert('Gagal: ' + err.message); }
 }
 
-// ─── ADMIN: PASSWORD MODAL ─────────────────────────────────────
+// ─── MODAL ─────────────────────────────────────────────────────
 async function showPasswordModal(name){
-  document.getElementById('modal-title').textContent='🔑 Password — '+name;
-  document.getElementById('modal-body').innerHTML='<div class="loading">Memuat...</div>';
-  document.getElementById('modal-confirm-btn').style.display='none';
+  document.getElementById('modal-title').textContent = 'Reset Kata Sandi — ' + name;
+  document.getElementById('modal-confirm-btn').style.display = 'none';
+  document.getElementById('modal-body').innerHTML = `
+    <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:12px">
+      Setelah direset, <strong>${esc(name)}</strong> harus membuat kata sandi baru saat login berikutnya.
+    </p>
+    <button class="btn btn-danger" onclick="doResetPassword('${esc(name)}')">Reset Kata Sandi</button>
+    <div id="modal-result"></div>`;
   document.getElementById('modal-overlay').classList.add('open');
-  try{
-    const data=await API.adminGetPassword(name);
-    document.getElementById('modal-body').innerHTML=`
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Password saat ini:</p>
-      <div class="password-display">${esc(data.password||'—')}</div>
-      <hr style="border:none;border-top:.5px solid var(--border);margin:14px 0"/>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px">Reset password (user harus setup ulang):</p>
-      <button class="btn btn-danger" onclick="doResetPassword('${esc(name)}')">🔄 Reset Password</button>
-      <div id="modal-result"></div>`;
-  } catch(err){
-    document.getElementById('modal-body').innerHTML=`<div class="error-msg">${esc(err.message)}</div>`;
-  }
 }
 
 async function doResetPassword(name){
-  if(!confirm(`Reset password ${name}? Mereka harus setup ulang saat login.`)) return;
+  if(!confirm(`Reset kata sandi ${name}?`)) return;
   try{
     await API.adminResetPass(name);
-    document.getElementById('modal-result').innerHTML='<div class="success-msg" style="margin-top:8px">✓ Password direset. User harus setup ulang.</div>';
-    setTimeout(()=>{closeModal();loadAdminUsers();},1500);
+    document.getElementById('modal-result').innerHTML = '<div class="result-success" style="margin-top:8px">Kata sandi berhasil direset.</div>';
+    setTimeout(()=>{ closeModal(); loadAdminUsers(); }, 1500);
   } catch(err){
-    document.getElementById('modal-result').innerHTML=`<div class="error-msg" style="margin-top:8px">${esc(err.message)}</div>`;
+    document.getElementById('modal-result').innerHTML = `<div class="result-error" style="margin-top:8px">${esc(err.message)}</div>`;
   }
 }
 
-function closeModal(){document.getElementById('modal-overlay').classList.remove('open')}
+function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
 
 // ─── ADMIN: MESSAGES ───────────────────────────────────────────
 async function loadAdminMsgs(){
-  const el=document.getElementById('admin-msg-list');
-  el.innerHTML='<div class="loading">Memuat...</div>';
+  const el = document.getElementById('admin-msg-list');
+  el.innerHTML = '<div class="loading">Memuat...</div>';
   try{
-    const msgs=await API.adminGetMessages();
-    if(!msgs.length){el.innerHTML='<div class="empty-state"><span class="icon">🗃️</span>Belum ada pesan.</div>';return}
-    el.innerHTML=msgs.map(m=>`
+    const msgs = await API.adminGetMessages();
+    if(!msgs.length){
+      el.innerHTML = `<div class="empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Belum ada pesan.</span>
+      </div>`;
+      return;
+    }
+    el.innerHTML = `<div class="msg-list">${msgs.map(m=>`
       <div class="msg-card">
-        <span class="badge badge-enc">🔐 Terenkripsi</span>
-        <div class="msg-meta" style="margin-bottom:6px">
-          <strong>${esc(m.sender_name)}</strong> → <strong>${esc(m.recipient_name)}</strong> · ${fmtDate(m.created_at)}
-        </div>
-        <div class="enc-text">${esc(m.preview)}…</div>
-      </div>`).join('');
-  } catch(err){el.innerHTML=`<div class="empty-state">Error: ${esc(err.message)}</div>`}
+        <div class="msg-head"><span class="msg-badge badge-enc">Terenkripsi</span></div>
+        <div class="msg-meta-row"><strong>${esc(m.sender_name)}</strong> &rarr; <strong>${esc(m.recipient_name)}</strong></div>
+        <div class="enc-preview">${esc(m.preview)}...</div>
+        <div class="msg-date">${fmtDate(m.created_at)}</div>
+      </div>`).join('')}</div>`;
+  } catch(err){ el.innerHTML = `<div class="empty">Error: ${esc(err.message)}</div>`; }
 }
 
-// ─── ADMIN: BACKUP ─────────────────────────────────────────────
+// ─── BACKUP ────────────────────────────────────────────────────
 async function loadBackupLogs(){
-  const el=document.getElementById('backup-log-list');
-  el.innerHTML='<div class="loading">Memuat...</div>';
+  const el = document.getElementById('backup-log-list');
+  el.innerHTML = '<div class="loading">Memuat...</div>';
   try{
-    const logs=await API.adminGetBackupLogs();
-    if(!logs.length){el.innerHTML='<div class="empty-state">Belum ada riwayat backup.</div>';return}
-    el.innerHTML=logs.map(l=>`
-      <div class="backup-row">
-        <span>${l.status==='success'?'✅':'❌'}</span>
+    const logs = await API.adminGetBackupLogs();
+    if(!logs.length){ el.innerHTML = '<div style="font-size:13px;color:var(--text-3);padding:8px 0">Belum ada riwayat backup.</div>'; return; }
+    el.innerHTML = logs.map(l=>`
+      <div class="bk-row">
+        <div class="bk-dot ${l.status==='success'?'bk-ok':'bk-fail'}"></div>
         <div>
-          <div style="font-weight:500">${esc(l.file_name||'-')}</div>
-          <div style="color:var(--text-muted)">${fmtDate(l.created_at)}
-            ${l.drive_url?` · <a href="${esc(l.drive_url)}" target="_blank" style="color:var(--accent)">Lihat di Drive</a>`:''}
+          <div style="font-weight:500;font-size:13px">${esc(l.file_name||'—')}</div>
+          <div style="font-size:12px;color:var(--text-3)">${fmtDate(l.created_at)}
+            ${l.drive_url?` &middot; <a href="${esc(l.drive_url)}" target="_blank" style="color:var(--accent)">Lihat di Drive</a>`:''}
           </div>
-          ${l.error_msg?`<div style="color:var(--red);font-size:12px">${esc(l.error_msg)}</div>`:''}
+          ${l.error_msg?`<div style="color:var(--red);font-size:12px;margin-top:2px">${esc(l.error_msg)}</div>`:''}
         </div>
       </div>`).join('');
-  } catch{el.innerHTML='<div class="empty-state">Gagal memuat riwayat.</div>'}
+  } catch{ el.innerHTML = '<div style="font-size:13px;color:var(--text-3);padding:8px 0">Gagal memuat.</div>'; }
 }
 
 async function triggerBackup(){
-  setResult('backup-result','⏳ Menjalankan backup...');
+  setResult('backup-result','Menjalankan backup...');
   try{
     await API.adminTriggerBackup();
-    setResult('backup-result','✅ Backup dimulai di background. Cek riwayat dalam beberapa detik.');
-    setTimeout(loadBackupLogs,3000);
-  } catch(err){setResult('backup-result',err.message,'error')}
+    setResult('backup-result','Backup dimulai. Cek riwayat dalam beberapa detik.');
+    setTimeout(loadBackupLogs, 3000);
+  } catch(err){ setResult('backup-result', err.message, 'error'); }
 }
 
-// ─── LOGIN SELECT ──────────────────────────────────────────────
+// ─── LOGIN DROPDOWN ────────────────────────────────────────────
 async function refreshLoginSelect(){
   try{
-    const names=await API.getAllNames();
-    const sel=document.getElementById('login-name');
-    const cur=sel.value;
-    sel.innerHTML='<option value="">— Pilih namamu —</option>';
+    const names = await API.getAllNames();
+    const sel   = document.getElementById('login-name');
+    const cur   = sel.value;
+    sel.innerHTML = '<option value="">Pilih namamu</option>';
     names.forEach(({name})=>{
-      const o=document.createElement('option');
-      o.value=name;o.textContent=name;
+      const o = document.createElement('option');
+      o.value = name; o.textContent = name;
       sel.appendChild(o);
     });
-    if(cur) sel.value=cur;
+    if(cur) sel.value = cur;
   } catch{}
 }
 
 // ─── INIT ──────────────────────────────────────────────────────
 async function init(){
+  initTheme();
   await refreshLoginSelect();
-
-  // Auto restore session
-  const token=API.getToken();
-  const role=localStorage.getItem('sn_role');
-  const savedName=localStorage.getItem('sn_user');
+  const token     = API.getToken();
+  const role      = localStorage.getItem('sn_role');
+  const savedName = localStorage.getItem('sn_user');
   if(token && role==='admin'){
-    try{await loadAdminPhases();showScreen('screen-admin');}
-    catch{API.clearToken();}
+    try{ await loadAdminPhases(); showScreen('screen-admin'); }
+    catch{ API.clearToken(); }
   } else if(token && savedName){
-    try{await initUserScreen(savedName);}
-    catch{API.clearToken();}
+    try{ await initUserScreen(savedName); }
+    catch{ API.clearToken(); }
   }
 }
 
-document.addEventListener('DOMContentLoaded',init);
+document.addEventListener('DOMContentLoaded', init);
