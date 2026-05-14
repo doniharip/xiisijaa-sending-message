@@ -1,6 +1,6 @@
 const express    = require('express');
 const mysql      = require('mysql2/promise');
-const bcrypt     = require('bcrypt');
+const bcrypt     = require('bcryptjs');
 const jwt        = require('jsonwebtoken');
 const cors       = require('cors');
 const helmet     = require('helmet');
@@ -100,10 +100,14 @@ app.post('/api/auth/setup', loginLimiter, async (req, res) => {
     const [rows] = await db.query('SELECT id, is_setup FROM users WHERE name = ?', [name]);
     if (!rows.length) return res.status(404).json({ error: 'Nama tidak ditemukan' });
     if (rows[0].is_setup) return res.status(409).json({ error: 'Password sudah pernah dibuat' });
-    const hash = await bcrypt.hash(password, 12);
+    const hash    = await bcrypt.hash(password, 12);
+    // key_hash = SHA-256(password) — dipakai sebagai kunci enkripsi E2E di client
+    // Tidak bisa dibalik ke password asli, aman disimpan di DB
+    const crypto  = require('crypto');
+    const keyHash = crypto.createHash('sha256').update(password).digest('hex');
     await db.query(
-      'UPDATE users SET password_hash=?, plain_password=?, is_setup=1 WHERE name=?',
-      [hash, password, name]);
+      'UPDATE users SET password_hash=?, key_hash=?, is_setup=1 WHERE name=?',
+      [hash, keyHash, name]);
     const token = jwt.sign({ name, role: 'user' }, JWT_SECRET, { expiresIn: '12h' });
     res.json({ token, name });
   } catch { res.status(500).json({ error: 'Server error' }); }
@@ -194,10 +198,10 @@ app.get('/api/messages/sent', authUser, async (req, res) => {
 app.get('/api/messages/recipient-key/:name', authUser, async (req, res) => {
   try {
     const [rows] = await db.query(
-      'SELECT plain_password FROM users WHERE name = ?', [req.params.name]);
+      'SELECT key_hash, is_setup FROM users WHERE name = ?', [req.params.name]);
     if (!rows.length) return res.status(404).json({ error: 'User tidak ditemukan' });
-    if (!rows[0].plain_password) return res.status(400).json({ error: 'Penerima belum setup password' });
-    res.json({ key: rows[0].plain_password });
+    if (!rows[0].is_setup || !rows[0].key_hash) return res.status(400).json({ error: 'Penerima belum setup password' });
+    res.json({ key: rows[0].key_hash });
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -261,7 +265,7 @@ app.put('/api/admin/users/:name/reset-password', authAdmin, async (req, res) => 
   const { name } = req.params;
   try {
     await db.query(
-      'UPDATE users SET password_hash=NULL, plain_password=NULL, is_setup=0 WHERE name=?', [name]);
+      'UPDATE users SET password_hash=NULL, key_hash=NULL, is_setup=0 WHERE name=?', [name]);
     res.json({ success: true, message: 'Password direset. User harus setup ulang.' });
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
