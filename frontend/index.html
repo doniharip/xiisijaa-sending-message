@@ -134,6 +134,10 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       Kirim Pesan
     </button>
+    <button class="tab-btn" onclick="userTab(this,'tab-class')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Pesan Kelas
+    </button>
   </nav>
 
   <div class="page-body">
@@ -161,6 +165,24 @@
         <p class="section-label">Sudah dikirim ke:</p>
         <div id="sent-to-list"></div>
       </div>
+    </div>
+    <div id="tab-class" class="tab-pane">
+      <div id="banner-class-closed" class="banner banner-warn" style="display:none">
+        Pesan kelas belum dibuka oleh admin.
+      </div>
+      <div id="class-board-write" class="card" style="margin-bottom:12px">
+        <p class="card-label">Tulis Pesan untuk Kelas</p>
+        <p class="card-desc">Namamu akan terlihat oleh semua orang.</p>
+        <div class="field">
+          <textarea id="class-msg-input" placeholder="Tulis sesuatu untuk seluruh kelas..." style="min-height:70px"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:4px">
+            <span id="class-char-count" style="font-size:12px;color:var(--text-3)">0/500</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-class-send" onclick="sendClassMsg()">Kirim ke Kelas</button>
+        <div id="class-send-result"></div>
+      </div>
+      <div id="class-board-list"></div>
     </div>
   </div>
 </div>
@@ -191,6 +213,7 @@
     <button class="tab-btn" onclick="adminTab(this,'atab-users')">Peserta</button>
     <button class="tab-btn" onclick="adminTab(this,'atab-add')">Tambah</button>
     <button class="tab-btn" onclick="adminTab(this,'atab-msgs')">Database</button>
+    <button class="tab-btn" onclick="adminTab(this,'atab-class')">Pesan Kelas</button>
     <button class="tab-btn" onclick="adminTab(this,'atab-backup')">Backup</button>
   </nav>
 
@@ -221,6 +244,18 @@
             <span class="switch-track"><span class="switch-thumb"></span></span>
           </label>
         </div>
+        <div class="phase-divider"></div>
+        <div class="phase-row">
+          <div class="phase-info">
+            <div class="phase-label">Pesan Kelas</div>
+            <div class="phase-desc">Peserta bisa menulis dan membaca pesan untuk seluruh kelas</div>
+            <div class="phase-pill" id="phase-class-status"></div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-class" onchange="togglePhase('class')"/>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </label>
+        </div>
       </div>
 
       <div class="card" style="margin-top:12px">
@@ -229,6 +264,7 @@
           <div class="step"><div class="step-num">1</div><div><div class="step-title">Buka Waktu Pengisian</div><div class="step-desc">Semua peserta menulis pesan untuk teman-temannya</div></div></div>
           <div class="step"><div class="step-num">2</div><div><div class="step-title">Tutup Waktu Pengisian</div><div class="step-desc">Tidak ada pesan baru yang bisa masuk</div></div></div>
           <div class="step"><div class="step-num">3</div><div><div class="step-title">Buka Waktu Pembacaan</div><div class="step-desc">Semua peserta membaca pesan yang mereka terima</div></div></div>
+          <div class="step"><div class="step-num">4</div><div><div class="step-title">Buka Pesan Kelas (kapan saja)</div><div class="step-desc">Peserta menulis dan membaca pesan untuk seluruh kelas</div></div></div>
         </div>
       </div>
     </div>
@@ -267,6 +303,15 @@
         Isi pesan tidak dapat dibaca — server hanya menyimpan ciphertext.
       </div>
       <div id="admin-msg-list"></div>
+    </div>
+
+    <!-- PESAN KELAS ADMIN -->
+    <div id="atab-class" class="tab-pane">
+      <div class="notice notice-amber" style="margin-bottom:12px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Admin bisa menghapus pesan kelas manapun.
+      </div>
+      <div id="admin-class-list"></div>
     </div>
 
     <!-- BACKUP -->

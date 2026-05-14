@@ -32,8 +32,14 @@ const API = (() => {
     adminDeleteUser:  (name)          => req('DELETE',`/admin/users/${encodeURIComponent(name)}`),
     adminGetMessages: ()              => req('GET','/admin/messages'),
     adminGetSettings: ()              => req('GET','/admin/settings'),
-    adminSetSettings: (body)          => req('PUT','/admin/settings',body),
     adminGetBackupLogs:()             => req('GET','/admin/backup-logs'),
     adminTriggerBackup:()             => req('POST','/admin/backup'),
+    // Class board
+    getClassBoard:    ()              => req('GET','/class-board'),
+    sendClassMsg:     (content)       => req('POST','/class-board',{content}),
+    deleteClassMsg:   (id)            => req('DELETE',`/class-board/${id}`),
+    adminGetClassBoard:()             => req('GET','/admin/class-board'),
+    adminDeleteClassMsg:(id)          => req('DELETE',`/admin/class-board/${id}`),
+    adminSetSettings: (body)          => req('PUT','/admin/settings',body),
   };
 })();

@@ -12,6 +12,9 @@ const app = express();
 const JWT_SECRET   = process.env.JWT_SECRET   || 'secret_kelas_2024';
 const ADMIN_PASS   = process.env.ADMIN_PASSWORD || 'admin2025';
 
+// Diperlukan agar express-rate-limit bekerja di balik proxy Railway/Nginx
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.json());
@@ -145,18 +148,7 @@ app.get('/api/users/all-names', async (req, res) => {
   }
 });
 
-// Status fase (publik)
-app.get('/api/settings/phases', async (req, res) => {
-  try {
-    const send = await getSetting('phase_send');
-    const read = await getSetting('phase_read');
-    res.json({ phase_send: send ?? 'open', phase_read: read ?? 'closed' });
-  } catch (err) {
-    console.error('phases error:', err.message);
-    // Jika tabel belum ada, kembalikan default daripada crash
-    res.json({ phase_send: 'open', phase_read: 'closed' });
-  }
-});
+// /api/settings/phases sudah dipindah ke bawah bersama class-board
 
 // ═══════════════════════════════════════════════════════════════
 // USER ROUTES
@@ -293,19 +285,94 @@ app.get('/api/admin/messages', authAdmin, async (req, res) => {
 // Get settings fase
 app.get('/api/admin/settings', authAdmin, async (req, res) => {
   try {
-    const send = await getSetting('phase_send');
-    const read = await getSetting('phase_read');
-    res.json({ phase_send: send, phase_read: read });
+    const send  = await getSetting('phase_send');
+    const read  = await getSetting('phase_read');
+    const cls   = await getSetting('phase_class');
+    res.json({ phase_send: send, phase_read: read, phase_class: cls });
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
 // Update settings fase
 app.put('/api/admin/settings', authAdmin, async (req, res) => {
-  const { phase_send, phase_read } = req.body;
+  const { phase_send, phase_read, phase_class } = req.body;
   try {
-    if (phase_send !== undefined) await setSetting('phase_send', phase_send === 'open' ? 'open' : 'closed');
-    if (phase_read !== undefined) await setSetting('phase_read', phase_read === 'open' ? 'open' : 'closed');
+    if (phase_send  !== undefined) await setSetting('phase_send',  phase_send  === 'open' ? 'open' : 'closed');
+    if (phase_read  !== undefined) await setSetting('phase_read',  phase_read  === 'open' ? 'open' : 'closed');
+    if (phase_class !== undefined) await setSetting('phase_class', phase_class === 'open' ? 'open' : 'closed');
     res.json({ success: true });
+  } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CLASS BOARD ROUTES
+// ═══════════════════════════════════════════════════════════════
+
+// Public phases endpoint (include phase_class)
+app.get('/api/settings/phases', async (req, res) => {
+  try {
+    const send  = await getSetting('phase_send');
+    const read  = await getSetting('phase_read');
+    const cls   = await getSetting('phase_class');
+    res.json({ phase_send: send ?? 'open', phase_read: read ?? 'closed', phase_class: cls ?? 'closed' });
+  } catch {
+    res.json({ phase_send: 'open', phase_read: 'closed', phase_class: 'closed' });
+  }
+});
+
+// Get semua pesan kelas (publik — semua user login bisa lihat)
+app.get('/api/class-board', authUser, async (req, res) => {
+  try {
+    const phase = await getSetting('phase_class');
+    if (phase !== null && phase !== 'open')
+      return res.status(403).json({ error: 'Pesan kelas belum dibuka oleh admin.' });
+    const [rows] = await db.query(
+      'SELECT id, sender_name, content, created_at FROM class_messages ORDER BY created_at DESC');
+    res.json(rows);
+  } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Kirim pesan kelas
+app.post('/api/class-board', authUser, async (req, res) => {
+  const { content } = req.body;
+  if (!content?.trim()) return res.status(400).json({ error: 'Pesan tidak boleh kosong' });
+  if (content.trim().length > 500) return res.status(400).json({ error: 'Pesan maksimal 500 karakter' });
+  try {
+    const phase = await getSetting('phase_class');
+    if (phase !== null && phase !== 'open')
+      return res.status(403).json({ error: 'Waktu pengisian pesan kelas sudah ditutup.' });
+    await db.query(
+      'INSERT INTO class_messages (sender_name, content) VALUES (?, ?)',
+      [req.user.name, content.trim()]);
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Hapus pesan kelas — hanya pengirim sendiri
+app.delete('/api/class-board/:id', authUser, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT sender_name FROM class_messages WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Pesan tidak ditemukan' });
+    if (rows[0].sender_name !== req.user.name)
+      return res.status(403).json({ error: 'Kamu hanya bisa menghapus pesanmu sendiri' });
+    await db.query('DELETE FROM class_messages WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Admin: hapus pesan kelas manapun
+app.delete('/api/admin/class-board/:id', authAdmin, async (req, res) => {
+  try {
+    await db.query('DELETE FROM class_messages WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Admin: lihat semua pesan kelas
+app.get('/api/admin/class-board', authAdmin, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, sender_name, content, created_at FROM class_messages ORDER BY created_at DESC');
+    res.json(rows);
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 

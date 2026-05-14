@@ -667,3 +667,50 @@ code {
   .page-body { padding: 12px; }
   .phase-row { padding: 16px; }
 }
+
+/* ─── CLASS BOARD ──────────────────────────────────────────── */
+.class-msg-card { }
+
+.class-msg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.class-msg-sender {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.class-sender-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.badge-mine {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+.btn-delete-class {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: color .12s, background .12s;
+}
+
+.btn-delete-class:hover {
+  color: var(--red);
+  background: var(--red-bg);
+}

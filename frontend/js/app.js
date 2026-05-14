@@ -78,7 +78,9 @@ async function doSetup(){
     const data = await API.setupPassword(name, pass);
     API.setToken(data.token);
     localStorage.setItem('sn_user', name);
-    localStorage.setItem('sn_pass', pass);
+    // Simpan SHA-256 dari password sebagai kunci dekripsi — bukan password asli
+    const keyHash = await sha256(pass);
+    localStorage.setItem('sn_key', keyHash);
     await initUserScreen(name);
   } catch(e){ errEl.textContent = e.message; }
 }
@@ -93,7 +95,9 @@ async function doLogin(){
     const data = await API.loginUser(name, pass);
     API.setToken(data.token);
     localStorage.setItem('sn_user', name);
-    localStorage.setItem('sn_pass', pass);
+    // Simpan SHA-256 dari password — tidak perlu simpan password asli
+    const keyHash = await sha256(pass);
+    localStorage.setItem('sn_key', keyHash);
     await initUserScreen(name);
   } catch(e){ errEl.textContent = e.message; }
 }
@@ -121,6 +125,7 @@ async function doAdminLogin(){
 
 function doLogout(){
   API.clearToken();
+  localStorage.removeItem('sn_key');
   document.getElementById('login-pass').value = '';
   document.getElementById('login-pass-section').style.display = 'none';
   document.getElementById('login-setup-section').style.display = 'none';
@@ -144,10 +149,16 @@ async function checkPhaseBanners(){
     const p = await API.getPhases();
     const bs = document.getElementById('banner-send-closed');
     const br = document.getElementById('banner-read-closed');
+    const bc = document.getElementById('banner-class-closed');
     if(bs) bs.style.display = p.phase_send === 'open' ? 'none' : 'block';
     if(br) br.style.display = p.phase_read === 'open' ? 'none' : 'block';
+    if(bc) bc.style.display = p.phase_class === 'open' ? 'none' : 'block';
     const btn = document.getElementById('btn-send');
     if(btn) btn.disabled = p.phase_send !== 'open';
+    const btnC = document.getElementById('btn-class-send');
+    if(btnC) btnC.disabled = p.phase_class !== 'open';
+    const writeBox = document.getElementById('class-board-write');
+    if(writeBox) writeBox.style.display = p.phase_class === 'open' ? 'flex' : 'none';
   } catch{}
 }
 
@@ -180,10 +191,10 @@ async function renderInbox(){
       </div>`;
       return;
     }
-    const pass = localStorage.getItem('sn_pass');
+    const key  = localStorage.getItem('sn_key');
     const name = localStorage.getItem('sn_user');
     const items = await Promise.all(msgs.map(async (m, i) => {
-      const plain = await Crypto.decrypt(m.ciphertext, pass, name);
+      const plain = await Crypto.decrypt(m.ciphertext, key, name);
       return {...m, plain, num: i+1};
     }));
     el.innerHTML = `<div class="msg-list">${items.map(m=>`
@@ -245,6 +256,7 @@ function userTab(btn, tabId){
   document.getElementById(tabId).classList.add('active');
   if(tabId==='tab-inbox'){ checkPhaseBanners(); renderInbox(); }
   if(tabId==='tab-send') { checkPhaseBanners(); loadUsers(); renderSentTo(); }
+  if(tabId==='tab-class'){ checkPhaseBanners(); renderClassBoard(); }
 }
 
 function adminTab(btn, tabId){
@@ -255,6 +267,7 @@ function adminTab(btn, tabId){
   if(tabId==='atab-fase')  loadAdminPhases();
   if(tabId==='atab-users') loadAdminUsers();
   if(tabId==='atab-msgs')  loadAdminMsgs();
+  if(tabId==='atab-class') loadAdminClassBoard();
   if(tabId==='atab-backup')loadBackupLogs();
 }
 
@@ -264,10 +277,13 @@ async function loadAdminPhases(){
     const s = await API.adminGetSettings();
     const cs = document.getElementById('toggle-send');
     const cr = document.getElementById('toggle-read');
-    if(cs) cs.checked = s.phase_send === 'open';
-    if(cr) cr.checked = s.phase_read === 'open';
-    updatePhaseUI('send', s.phase_send);
-    updatePhaseUI('read', s.phase_read);
+    const cc = document.getElementById('toggle-class');
+    if(cs) cs.checked = s.phase_send  === 'open';
+    if(cr) cr.checked = s.phase_read  === 'open';
+    if(cc) cc.checked = s.phase_class === 'open';
+    updatePhaseUI('send',  s.phase_send);
+    updatePhaseUI('read',  s.phase_read);
+    updatePhaseUI('class', s.phase_class);
   } catch{}
 }
 
@@ -460,6 +476,120 @@ async function refreshLoginSelect(){
     });
     if(cur) sel.value = cur;
   } catch{}
+}
+
+// ─── CLASS BOARD ──────────────────────────────────────────────
+
+// Char counter
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('class-msg-input');
+  const ct = document.getElementById('class-char-count');
+  if(ta && ct){
+    ta.addEventListener('input', () => {
+      const len = ta.value.length;
+      ct.textContent = len + '/500';
+      ct.style.color = len > 450 ? 'var(--red)' : 'var(--text-3)';
+    });
+  }
+});
+
+async function renderClassBoard(){
+  const el = document.getElementById('class-board-list');
+  if(!el) return;
+  el.innerHTML = '<div class="loading">Memuat pesan kelas...</div>';
+  try{
+    const msgs = await API.getClassBoard();
+    const me   = localStorage.getItem('sn_user');
+    if(!msgs.length){
+      el.innerHTML = `<div class="empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Belum ada pesan untuk kelas.</span>
+        <small style="color:var(--text-3)">Jadilah yang pertama menulis!</small>
+      </div>`;
+      return;
+    }
+    el.innerHTML = `<div class="msg-list">${msgs.map(m=>`
+      <div class="msg-card class-msg-card">
+        <div class="class-msg-head">
+          <div class="class-msg-sender">
+            <div class="avatar" style="width:26px;height:26px;font-size:11px">${initials(m.sender_name)}</div>
+            <span class="class-sender-name">${esc(m.sender_name)}</span>
+            ${m.sender_name === me ? '<span class="badge-mine">Kamu</span>' : ''}
+          </div>
+          ${m.sender_name === me
+            ? `<button class="btn-delete-class" onclick="deleteClassMsg(${m.id})" title="Hapus pesan">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>`
+            : ''}
+        </div>
+        <p class="msg-text" style="margin-top:8px">${esc(m.content)}</p>
+        <div class="msg-date">${fmtDate(m.created_at)}</div>
+      </div>`).join('')}</div>`;
+  } catch(err){
+    if(err.message.includes('belum dibuka')){
+      el.innerHTML = `<div class="empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>Pesan kelas belum dibuka oleh admin.</span>
+      </div>`;
+    } else {
+      el.innerHTML = `<div class="empty">Gagal memuat: ${esc(err.message)}</div>`;
+    }
+  }
+}
+
+async function sendClassMsg(){
+  const txt = document.getElementById('class-msg-input').value.trim();
+  if(!txt){ setResult('class-send-result','Pesan tidak boleh kosong.','error'); return; }
+  try{
+    await API.sendClassMsg(txt);
+    document.getElementById('class-msg-input').value = '';
+    document.getElementById('class-char-count').textContent = '0/500';
+    setResult('class-send-result','Pesan berhasil dikirim.');
+    await renderClassBoard();
+  } catch(err){ setResult('class-send-result', err.message, 'error'); }
+}
+
+async function deleteClassMsg(id){
+  if(!confirm('Hapus pesanmu ini?')) return;
+  try{
+    await API.deleteClassMsg(id);
+    await renderClassBoard();
+  } catch(err){ alert('Gagal: ' + err.message); }
+}
+
+async function loadAdminClassBoard(){
+  const el = document.getElementById('admin-class-list');
+  if(!el) return;
+  el.innerHTML = '<div class="loading">Memuat...</div>';
+  try{
+    const msgs = await API.adminGetClassBoard();
+    if(!msgs.length){
+      el.innerHTML = '<div class="empty"><span>Belum ada pesan kelas.</span></div>';
+      return;
+    }
+    el.innerHTML = `<div class="msg-list">${msgs.map(m=>`
+      <div class="msg-card">
+        <div class="class-msg-head">
+          <div class="class-msg-sender">
+            <div class="avatar" style="width:26px;height:26px;font-size:11px">${initials(m.sender_name)}</div>
+            <span class="class-sender-name">${esc(m.sender_name)}</span>
+          </div>
+          <button class="btn-delete-class" onclick="adminDeleteClassMsg(${m.id})" title="Hapus">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+        <p class="msg-text" style="margin-top:8px">${esc(m.content)}</p>
+        <div class="msg-date">${fmtDate(m.created_at)}</div>
+      </div>`).join('')}</div>`;
+  } catch(err){ el.innerHTML = `<div class="empty">Error: ${esc(err.message)}</div>`; }
+}
+
+async function adminDeleteClassMsg(id){
+  if(!confirm('Hapus pesan ini?')) return;
+  try{
+    await API.adminDeleteClassMsg(id);
+    await loadAdminClassBoard();
+  } catch(err){ alert('Gagal: ' + err.message); }
 }
 
 // ─── INIT ──────────────────────────────────────────────────────
