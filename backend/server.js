@@ -415,6 +415,24 @@ cron.schedule('0 2 * * *', () => {
   exec('node ' + path.join(__dirname, 'backup.js'));
 }, { timezone: 'Asia/Jakarta' });
 
+// ─── PHOTOS — list foto di folder frontend/photos ────────────
+const fs = require('fs');
+const PHOTOS_DIR = path.join(__dirname, '../frontend/photos');
+const PHOTO_EXTS = ['.jpg','.jpeg','.png','.webp','.gif'];
+
+app.get('/api/photos', (req, res) => {
+  try {
+    if (!fs.existsSync(PHOTOS_DIR)) return res.json([]);
+    const files = fs.readdirSync(PHOTOS_DIR)
+      .filter(f => PHOTO_EXTS.includes(path.extname(f).toLowerCase()))
+      .map(f => '/photos/' + f);
+    res.json(files);
+  } catch(err) {
+    console.error('photos error:', err.message);
+    res.json([]);
+  }
+});
+
 // ─── CATCH ALL ────────────────────────────────────────────────
 app.get('*', (req, res) =>
   res.sendFile(path.join(__dirname, '../frontend/index.html')));
