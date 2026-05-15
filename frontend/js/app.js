@@ -174,18 +174,20 @@ async function initUserScreen(name){
 async function checkPhaseBanners(){
   try{
     const p = await API.getPhases();
-    const bs = document.getElementById('banner-send-closed');
-    const br = document.getElementById('banner-read-closed');
-    const bc = document.getElementById('banner-class-closed');
-    if(bs) bs.style.display = p.phase_send === 'open' ? 'none' : 'block';
-    if(br) br.style.display = p.phase_read === 'open' ? 'none' : 'block';
-    if(bc) bc.style.display = p.phase_class === 'open' ? 'none' : 'block';
+    const bs  = document.getElementById('banner-send-closed');
+    const br  = document.getElementById('banner-read-closed');
+    const bcw = document.getElementById('banner-class-write-closed');
+    const bcr = document.getElementById('banner-class-read-closed');
+    if(bs)  bs.style.display  = p.phase_send        === 'open' ? 'none' : 'block';
+    if(br)  br.style.display  = p.phase_read        === 'open' ? 'none' : 'block';
+    if(bcw) bcw.style.display = p.phase_class_write === 'open' ? 'none' : 'block';
+    if(bcr) bcr.style.display = p.phase_class_read  === 'open' ? 'none' : 'block';
     const btn = document.getElementById('btn-send');
     if(btn) btn.disabled = p.phase_send !== 'open';
     const btnC = document.getElementById('btn-class-send');
-    if(btnC) btnC.disabled = p.phase_class !== 'open';
+    if(btnC) btnC.disabled = p.phase_class_write !== 'open';
     const writeBox = document.getElementById('class-board-write');
-    if(writeBox) writeBox.style.display = p.phase_class === 'open' ? 'flex' : 'none';
+    if(writeBox) writeBox.style.display = p.phase_class_write === 'open' ? 'flex' : 'none';
   } catch{}
 }
 
@@ -301,21 +303,26 @@ function adminTab(btn, tabId){
 // ─── ADMIN: FASE ───────────────────────────────────────────────
 async function loadAdminPhases(){
   try{
-    const s = await API.adminGetSettings();
-    const cs = document.getElementById('toggle-send');
-    const cr = document.getElementById('toggle-read');
-    const cc = document.getElementById('toggle-class');
-    if(cs) cs.checked = s.phase_send  === 'open';
-    if(cr) cr.checked = s.phase_read  === 'open';
-    if(cc) cc.checked = s.phase_class === 'open';
-    updatePhaseUI('send',  s.phase_send);
-    updatePhaseUI('read',  s.phase_read);
-    updatePhaseUI('class', s.phase_class);
+    const s   = await API.adminGetSettings();
+    const cs  = document.getElementById('toggle-send');
+    const cr  = document.getElementById('toggle-read');
+    const ccw = document.getElementById('toggle-class-write');
+    const ccr = document.getElementById('toggle-class-read');
+    if(cs)  cs.checked  = s.phase_send        === 'open';
+    if(cr)  cr.checked  = s.phase_read        === 'open';
+    if(ccw) ccw.checked = s.phase_class_write === 'open';
+    if(ccr) ccr.checked = s.phase_class_read  === 'open';
+    updatePhaseUI('send',        s.phase_send);
+    updatePhaseUI('read',        s.phase_read);
+    updatePhaseUI('class_write', s.phase_class_write);
+    updatePhaseUI('class_read',  s.phase_class_read);
   } catch{}
 }
 
 function updatePhaseUI(phase, val){
-  const el = document.getElementById(`phase-${phase}-status`);
+  // Ganti underscore ke dash untuk cocok dengan id HTML
+  const id = `phase-${phase.replace(/_/g,'-')}-status`;
+  const el = document.getElementById(id);
   if(!el) return;
   if(val === 'open'){
     el.textContent = 'Terbuka';
@@ -507,18 +514,7 @@ async function refreshLoginSelect(){
 
 // ─── CLASS BOARD ──────────────────────────────────────────────
 
-// Char counter
-document.addEventListener('DOMContentLoaded', () => {
-  const ta = document.getElementById('class-msg-input');
-  const ct = document.getElementById('class-char-count');
-  if(ta && ct){
-    ta.addEventListener('input', () => {
-      const len = ta.value.length;
-      ct.textContent = len + '/500';
-      ct.style.color = len > 450 ? 'var(--red)' : 'var(--text-3)';
-    });
-  }
-});
+// Tidak ada batas karakter untuk pesan kelas
 
 async function renderClassBoard(){
   const el = document.getElementById('class-board-list');
@@ -553,10 +549,10 @@ async function renderClassBoard(){
         <div class="msg-date">${fmtDate(m.created_at)}</div>
       </div>`).join('')}</div>`;
   } catch(err){
-    if(err.message.includes('belum dibuka')){
+    if(err.message.includes('belum dibuka') || err.message.includes('ditutup')){
       el.innerHTML = `<div class="empty">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>Pesan kelas belum dibuka oleh admin.</span>
+        <span>Waktu pembacaan pesan kelas belum dibuka.</span>
       </div>`;
     } else {
       el.innerHTML = `<div class="empty">Gagal memuat: ${esc(err.message)}</div>`;
@@ -570,7 +566,7 @@ async function sendClassMsg(){
   try{
     await API.sendClassMsg(txt);
     document.getElementById('class-msg-input').value = '';
-    document.getElementById('class-char-count').textContent = '0/500';
+
     setResult('class-send-result','Pesan berhasil dikirim.');
     await renderClassBoard();
   } catch(err){ setResult('class-send-result', err.message, 'error'); }

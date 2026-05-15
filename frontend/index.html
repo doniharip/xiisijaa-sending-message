@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="css/style.css"/>
-<link rel="icon" type="image/png" href="logo/logo.png">
 </head>
 <body>
 
@@ -172,17 +171,18 @@
       </div>
     </div>
     <div id="tab-class" class="tab-pane">
-      <div id="banner-class-closed" class="banner banner-warn" style="display:none">
-        Pesan kelas belum dibuka oleh admin.
+      <div id="banner-class-write-closed" class="banner banner-warn" style="display:none">
+        Waktu pengisian pesan kelas sudah ditutup.
+      </div>
+      <div id="banner-class-read-closed" class="banner banner-warn" style="display:none">
+        Waktu pembacaan pesan kelas belum dibuka oleh admin.
       </div>
       <div id="class-board-write" class="card" style="margin-bottom:12px">
         <p class="card-label">Tulis Pesan untuk Kelas</p>
         <p class="card-desc">Namamu akan terlihat oleh semua orang.</p>
         <div class="field">
           <textarea id="class-msg-input" placeholder="Tulis sesuatu untuk seluruh kelas..." style="min-height:70px"></textarea>
-          <div style="display:flex;justify-content:flex-end;margin-top:4px">
-            <span id="class-char-count" style="font-size:12px;color:var(--text-3)">0/500</span>
-          </div>
+
         </div>
         <button class="btn btn-primary" id="btn-class-send" onclick="sendClassMsg()">Kirim ke Kelas</button>
         <div id="class-send-result"></div>
@@ -252,12 +252,24 @@
         <div class="phase-divider"></div>
         <div class="phase-row">
           <div class="phase-info">
-            <div class="phase-label">Pesan Kelas</div>
-            <div class="phase-desc">Peserta bisa menulis dan membaca pesan untuk seluruh kelas</div>
-            <div class="phase-pill" id="phase-class-status"></div>
+            <div class="phase-label">Pengisian Pesan Kelas</div>
+            <div class="phase-desc">Peserta bisa menulis pesan untuk seluruh kelas</div>
+            <div class="phase-pill" id="phase-class-write-status"></div>
           </div>
           <label class="switch">
-            <input type="checkbox" id="toggle-class" onchange="togglePhase('class')"/>
+            <input type="checkbox" id="toggle-class-write" onchange="togglePhase('class_write')"/>
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </label>
+        </div>
+        <div class="phase-divider"></div>
+        <div class="phase-row">
+          <div class="phase-info">
+            <div class="phase-label">Pembacaan Pesan Kelas</div>
+            <div class="phase-desc">Peserta bisa membaca semua pesan kelas yang masuk</div>
+            <div class="phase-pill" id="phase-class-read-status"></div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-class-read" onchange="togglePhase('class_read')"/>
             <span class="switch-track"><span class="switch-thumb"></span></span>
           </label>
         </div>
@@ -269,7 +281,8 @@
           <div class="step"><div class="step-num">1</div><div><div class="step-title">Buka Waktu Pengisian</div><div class="step-desc">Semua peserta menulis pesan untuk teman-temannya</div></div></div>
           <div class="step"><div class="step-num">2</div><div><div class="step-title">Tutup Waktu Pengisian</div><div class="step-desc">Tidak ada pesan baru yang bisa masuk</div></div></div>
           <div class="step"><div class="step-num">3</div><div><div class="step-title">Buka Waktu Pembacaan</div><div class="step-desc">Semua peserta membaca pesan yang mereka terima</div></div></div>
-          <div class="step"><div class="step-num">4</div><div><div class="step-title">Buka Pesan Kelas (kapan saja)</div><div class="step-desc">Peserta menulis dan membaca pesan untuk seluruh kelas</div></div></div>
+          <div class="step"><div class="step-num">4</div><div><div class="step-title">Buka Pengisian Pesan Kelas</div><div class="step-desc">Peserta menulis pesan untuk seluruh kelas</div></div></div>
+          <div class="step"><div class="step-num">5</div><div><div class="step-title">Buka Pembacaan Pesan Kelas</div><div class="step-desc">Semua peserta membaca pesan kelas yang masuk</div></div></div>
         </div>
       </div>
     </div>

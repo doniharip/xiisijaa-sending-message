@@ -308,20 +308,22 @@ app.get('/api/admin/messages', authAdmin, async (req, res) => {
 // Get settings fase
 app.get('/api/admin/settings', authAdmin, async (req, res) => {
   try {
-    const send  = await getSetting('phase_send');
-    const read  = await getSetting('phase_read');
-    const cls   = await getSetting('phase_class');
-    res.json({ phase_send: send, phase_read: read, phase_class: cls });
+    const send        = await getSetting('phase_send');
+    const read        = await getSetting('phase_read');
+    const classWrite  = await getSetting('phase_class_write');
+    const classRead   = await getSetting('phase_class_read');
+    res.json({ phase_send: send, phase_read: read, phase_class_write: classWrite, phase_class_read: classRead });
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
 // Update settings fase
 app.put('/api/admin/settings', authAdmin, async (req, res) => {
-  const { phase_send, phase_read, phase_class } = req.body;
+  const { phase_send, phase_read, phase_class_write, phase_class_read } = req.body;
   try {
-    if (phase_send  !== undefined) await setSetting('phase_send',  phase_send  === 'open' ? 'open' : 'closed');
-    if (phase_read  !== undefined) await setSetting('phase_read',  phase_read  === 'open' ? 'open' : 'closed');
-    if (phase_class !== undefined) await setSetting('phase_class', phase_class === 'open' ? 'open' : 'closed');
+    if (phase_send        !== undefined) await setSetting('phase_send',        phase_send        === 'open' ? 'open' : 'closed');
+    if (phase_read        !== undefined) await setSetting('phase_read',        phase_read        === 'open' ? 'open' : 'closed');
+    if (phase_class_write !== undefined) await setSetting('phase_class_write', phase_class_write === 'open' ? 'open' : 'closed');
+    if (phase_class_read  !== undefined) await setSetting('phase_class_read',  phase_class_read  === 'open' ? 'open' : 'closed');
     res.json({ success: true });
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
@@ -330,24 +332,30 @@ app.put('/api/admin/settings', authAdmin, async (req, res) => {
 // CLASS BOARD ROUTES
 // ═══════════════════════════════════════════════════════════════
 
-// Public phases endpoint (include phase_class)
+// Public phases endpoint
 app.get('/api/settings/phases', async (req, res) => {
   try {
-    const send  = await getSetting('phase_send');
-    const read  = await getSetting('phase_read');
-    const cls   = await getSetting('phase_class');
-    res.json({ phase_send: send ?? 'open', phase_read: read ?? 'closed', phase_class: cls ?? 'closed' });
+    const send       = await getSetting('phase_send');
+    const read       = await getSetting('phase_read');
+    const classWrite = await getSetting('phase_class_write');
+    const classRead  = await getSetting('phase_class_read');
+    res.json({
+      phase_send:        send       ?? 'open',
+      phase_read:        read       ?? 'closed',
+      phase_class_write: classWrite ?? 'closed',
+      phase_class_read:  classRead  ?? 'closed',
+    });
   } catch {
-    res.json({ phase_send: 'open', phase_read: 'closed', phase_class: 'closed' });
+    res.json({ phase_send: 'open', phase_read: 'closed', phase_class_write: 'closed', phase_class_read: 'closed' });
   }
 });
 
-// Get semua pesan kelas (publik — semua user login bisa lihat)
+// Get semua pesan kelas
 app.get('/api/class-board', authUser, async (req, res) => {
   try {
-    const phase = await getSetting('phase_class');
+    const phase = await getSetting('phase_class_read');
     if (phase !== null && phase !== 'open')
-      return res.status(403).json({ error: 'Pesan kelas belum dibuka oleh admin.' });
+      return res.status(403).json({ error: 'Waktu pembacaan pesan kelas belum dibuka oleh admin.' });
     const [rows] = await db.query(
       'SELECT id, sender_name, content, created_at FROM class_messages ORDER BY created_at DESC');
     res.json(rows);
@@ -361,9 +369,8 @@ app.get('/api/class-board', authUser, async (req, res) => {
 app.post('/api/class-board', authUser, async (req, res) => {
   const { content } = req.body;
   if (!content?.trim()) return res.status(400).json({ error: 'Pesan tidak boleh kosong' });
-  if (content.trim().length > 500) return res.status(400).json({ error: 'Pesan maksimal 500 karakter' });
   try {
-    const phase = await getSetting('phase_class');
+    const phase = await getSetting('phase_class_write');
     if (phase !== null && phase !== 'open')
       return res.status(403).json({ error: 'Waktu pengisian pesan kelas sudah ditutup.' });
     await db.query(

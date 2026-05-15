@@ -55,3 +55,10 @@ SELECT 'Migration class_messages selesai!' AS status;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS
   temp_key VARCHAR(64) NULL COMMENT 'Kunci sementara sebelum user setup password'
   AFTER key_hash;
+
+-- Pisah phase_class menjadi phase_class_write dan phase_class_read
+INSERT INTO app_settings (setting_key, setting_value) VALUES ('phase_class_write', 'closed')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO app_settings (setting_key, setting_value) VALUES ('phase_class_read', 'closed')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
