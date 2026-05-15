@@ -9,6 +9,7 @@
  *   'photos/wisata_2024.jpg',
  */
 const PHOTOS = [
+  'photos/foto1.jpeg'
   // Tambahkan foto kamu di sini, contoh:
   // 'photos/foto1.jpg',
   // 'photos/foto2.jpg',
