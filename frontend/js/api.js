@@ -34,6 +34,9 @@ const API = (() => {
     adminGetSettings: ()              => req('GET','/admin/settings'),
     adminGetBackupLogs:()             => req('GET','/admin/backup-logs'),
     adminTriggerBackup:()             => req('POST','/admin/backup'),
+    // Inbox raw untuk re-enkripsi
+    getInboxRaw:      ()              => req('GET','/messages/inbox-raw'),
+    reEncryptMessages:(messages)      => req('POST','/messages/reencrypt',{messages}),
     // Class board
     getClassBoard:    ()              => req('GET','/class-board'),
     sendClassMsg:     (content)       => req('POST','/class-board',{content}),

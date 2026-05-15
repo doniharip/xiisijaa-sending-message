@@ -50,3 +50,8 @@ INSERT INTO app_settings (setting_key, setting_value) VALUES ('phase_class', 'cl
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 SELECT 'Migration class_messages selesai!' AS status;
+
+-- Tambah kolom temp_key untuk enkripsi pesan sebelum user setup password
+ALTER TABLE users ADD COLUMN IF NOT EXISTS
+  temp_key VARCHAR(64) NULL COMMENT 'Kunci sementara sebelum user setup password'
+  AFTER key_hash;

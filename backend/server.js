@@ -109,11 +109,14 @@ app.post('/api/auth/setup', loginLimiter, async (req, res) => {
     // Tidak bisa dibalik ke password asli, aman disimpan di DB
     const crypto  = require('crypto');
     const keyHash = crypto.createHash('sha256').update(password).digest('hex');
+    // Ambil temp_key lama sebelum diupdate (untuk re-enkripsi pesan lama di client)
+    const [existing] = await db.query('SELECT temp_key FROM users WHERE name=?', [name]);
+    const tempKey = existing[0]?.temp_key || null;
     await db.query(
       'UPDATE users SET password_hash=?, key_hash=?, is_setup=1 WHERE name=?',
       [hash, keyHash, name]);
     const token = jwt.sign({ name, role: 'user' }, JWT_SECRET, { expiresIn: '12h' });
-    res.json({ token, name });
+    res.json({ token, name, key_hash: keyHash, temp_key: tempKey });
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -188,14 +191,33 @@ app.get('/api/messages/sent', authUser, async (req, res) => {
 });
 
 // Recipient key (untuk enkripsi di client)
+// Jika penerima belum setup password, gunakan SHA-256(nama) sebagai kunci sementara.
+// Kunci sementara ini disimpan di kolom temp_key supaya pesan tetap bisa dibaca
+// setelah penerima setup password (dengan re-enkripsi otomatis saat login).
 app.get('/api/messages/recipient-key/:name', authUser, async (req, res) => {
   try {
+    const crypto = require('crypto');
     const [rows] = await db.query(
-      'SELECT key_hash, is_setup FROM users WHERE name = ?', [req.params.name]);
+      'SELECT key_hash, temp_key, is_setup, name FROM users WHERE name = ?', [req.params.name]);
     if (!rows.length) return res.status(404).json({ error: 'User tidak ditemukan' });
-    if (!rows[0].is_setup || !rows[0].key_hash) return res.status(400).json({ error: 'Penerima belum setup password' });
-    res.json({ key: rows[0].key_hash });
-  } catch { res.status(500).json({ error: 'Server error' }); }
+    const user = rows[0];
+
+    if (user.is_setup && user.key_hash) {
+      // Sudah setup — pakai key_hash asli
+      res.json({ key: user.key_hash, ready: true });
+    } else {
+      // Belum setup — buat/pakai temp_key dari SHA-256(nama)
+      let tempKey = user.temp_key;
+      if (!tempKey) {
+        tempKey = crypto.createHash('sha256').update(user.name + '_temp').digest('hex');
+        await db.query('UPDATE users SET temp_key = ? WHERE name = ?', [tempKey, user.name]);
+      }
+      res.json({ key: tempKey, ready: false });
+    }
+  } catch(err) {
+    console.error('recipient-key error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Kirim pesan
@@ -415,6 +437,36 @@ cron.schedule('0 2 * * *', () => {
   console.log('[cron] Memulai backup otomatis...');
   runBackup().catch(err => console.error('[cron] Backup error:', err.message));
 }, { timezone: 'Asia/Jakarta' });
+
+// Inbox raw — ciphertext mentah untuk re-enkripsi (hanya saat setup)
+app.get('/api/messages/inbox-raw', authUser, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, ciphertext FROM messages WHERE recipient_name = ?', [req.user.name]);
+    res.json(rows);
+  } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Re-enkripsi pesan setelah user setup password
+app.post('/api/messages/reencrypt', authUser, async (req, res) => {
+  const { messages } = req.body;
+  if (!Array.isArray(messages)) return res.status(400).json({ error: 'Data tidak valid' });
+  try {
+    for (const m of messages) {
+      if (!m.id || !m.ciphertext) continue;
+      // Pastikan pesan milik user ini
+      const [rows] = await db.query(
+        'SELECT id FROM messages WHERE id=? AND recipient_name=?', [m.id, req.user.name]);
+      if (rows.length) {
+        await db.query('UPDATE messages SET ciphertext=? WHERE id=?', [m.ciphertext, m.id]);
+      }
+    }
+    res.json({ success: true });
+  } catch(err) {
+    console.error('reencrypt error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // ─── PHOTOS — list foto di folder frontend/photos ────────────
 const fs = require('fs');

@@ -78,11 +78,38 @@ async function doSetup(){
     const data = await API.setupPassword(name, pass);
     API.setToken(data.token);
     localStorage.setItem('sn_user', name);
-    // Simpan SHA-256 dari password sebagai kunci dekripsi — bukan password asli
     const keyHash = await sha256(pass);
     localStorage.setItem('sn_key', keyHash);
+
+    // Jika ada pesan lama yang dienkripsi dengan temp_key,
+    // re-enkripsi sekarang dengan key_hash baru
+    if(data.temp_key && data.key_hash) {
+      await reEncryptMessages(name, data.temp_key, data.key_hash);
+    }
+
     await initUserScreen(name);
   } catch(e){ errEl.textContent = e.message; }
+}
+
+// Re-enkripsi pesan lama dari temp_key ke key_hash baru
+async function reEncryptMessages(name, oldKey, newKey) {
+  try {
+    const msgs = await API.getInboxRaw(); // ambil ciphertext mentah
+    if(!msgs.length) return;
+    const reencrypted = [];
+    for(const m of msgs) {
+      const plain = await Crypto.decrypt(m.ciphertext, oldKey, name);
+      if(plain !== null) {
+        const newCipher = await Crypto.encrypt(plain, newKey, name);
+        reencrypted.push({ id: m.id, ciphertext: newCipher });
+      }
+    }
+    if(reencrypted.length) {
+      await API.reEncryptMessages(reencrypted);
+    }
+  } catch(e) {
+    console.warn('Re-enkripsi gagal (tidak kritis):', e.message);
+  }
 }
 
 async function doLogin(){
