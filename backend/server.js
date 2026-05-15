@@ -7,6 +7,7 @@ const helmet     = require('helmet');
 const rateLimit  = require('express-rate-limit');
 const path       = require('path');
 require('dotenv').config();
+const { runBackup } = require('./backup');
 
 const app = express();
 const JWT_SECRET   = process.env.JWT_SECRET   || 'secret_kelas_2024';
@@ -402,17 +403,17 @@ app.get('/api/admin/backup-logs', authAdmin, async (req, res) => {
 // Trigger backup manual
 app.post('/api/admin/backup', authAdmin, async (req, res) => {
   try {
-    const { exec } = require('child_process');
-    exec('node ' + path.join(__dirname, 'backup.js'));
-    res.json({ success: true });
+    // Jalankan di background, langsung respond ke client
+    res.json({ success: true, message: 'Backup dimulai' });
+    runBackup().catch(err => console.error('Manual backup error:', err.message));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── CRON backup tiap hari 02.00 WIB ─────────────────────────
 const cron = require('node-cron');
 cron.schedule('0 2 * * *', () => {
-  const { exec } = require('child_process');
-  exec('node ' + path.join(__dirname, 'backup.js'));
+  console.log('[cron] Memulai backup otomatis...');
+  runBackup().catch(err => console.error('[cron] Backup error:', err.message));
 }, { timezone: 'Asia/Jakarta' });
 
 // ─── PHOTOS — list foto di folder frontend/photos ────────────
