@@ -328,7 +328,10 @@ app.get('/api/class-board', authUser, async (req, res) => {
     const [rows] = await db.query(
       'SELECT id, sender_name, content, created_at FROM class_messages ORDER BY created_at DESC');
     res.json(rows);
-  } catch { res.status(500).json({ error: 'Server error' }); }
+  } catch(err) {
+    console.error('class-board GET error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Kirim pesan kelas
@@ -344,7 +347,10 @@ app.post('/api/class-board', authUser, async (req, res) => {
       'INSERT INTO class_messages (sender_name, content) VALUES (?, ?)',
       [req.user.name, content.trim()]);
     res.json({ success: true });
-  } catch { res.status(500).json({ error: 'Server error' }); }
+  } catch(err) {
+    console.error('class-board POST error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Hapus pesan kelas — hanya pengirim sendiri
@@ -356,7 +362,10 @@ app.delete('/api/class-board/:id', authUser, async (req, res) => {
       return res.status(403).json({ error: 'Kamu hanya bisa menghapus pesanmu sendiri' });
     await db.query('DELETE FROM class_messages WHERE id = ?', [req.params.id]);
     res.json({ success: true });
-  } catch { res.status(500).json({ error: 'Server error' }); }
+  } catch(err) {
+    console.error('class-board DELETE error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Admin: hapus pesan kelas manapun
@@ -364,7 +373,10 @@ app.delete('/api/admin/class-board/:id', authAdmin, async (req, res) => {
   try {
     await db.query('DELETE FROM class_messages WHERE id = ?', [req.params.id]);
     res.json({ success: true });
-  } catch { res.status(500).json({ error: 'Server error' }); }
+  } catch(err) {
+    console.error('admin class-board DELETE error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Admin: lihat semua pesan kelas
@@ -373,7 +385,10 @@ app.get('/api/admin/class-board', authAdmin, async (req, res) => {
     const [rows] = await db.query(
       'SELECT id, sender_name, content, created_at FROM class_messages ORDER BY created_at DESC');
     res.json(rows);
-  } catch { res.status(500).json({ error: 'Server error' }); }
+  } catch(err) {
+    console.error('admin class-board GET error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Backup logs
