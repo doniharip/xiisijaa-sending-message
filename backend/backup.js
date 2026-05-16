@@ -110,7 +110,7 @@ async function uploadToDrive(content, fileName) {
 
   const auth = new google.auth.GoogleAuth({
     credentials,
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
+    scopes: ['https://www.googleapis.com/auth/drive'],
   });
 
   const drive = google.drive({ version: 'v3', auth });
@@ -120,15 +120,18 @@ async function uploadToDrive(content, fileName) {
     const existing = await drive.files.list({
       q: `name='${fileName}' and '${folderId}' in parents and trashed=false`,
       fields: 'files(id)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
     for (const f of existing.data.files) {
-      await drive.files.delete({ fileId: f.id });
+      await drive.files.delete({ fileId: f.id, supportsAllDrives: true });
     }
   } catch {}
 
-  // Upload file baru
+  // Upload file baru — supportsAllDrives diperlukan untuk Shared Drive
   const stream = Readable.from([content]);
   const res = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name: fileName,
       parents: [folderId],
