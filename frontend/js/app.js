@@ -334,7 +334,10 @@ function updatePhaseUI(phase, val){
 }
 
 async function togglePhase(phase){
-  const chk = document.getElementById(`toggle-${phase}`);
+  // phase pakai underscore (class_write) tapi id HTML pakai dash (toggle-class-write)
+  const toggleId = `toggle-${phase.replace(/_/g,'-')}`;
+  const chk = document.getElementById(toggleId);
+  if(!chk) return;
   const val = chk.checked ? 'open' : 'closed';
   try{
     await API.adminSetSettings({[`phase_${phase}`]: val});
