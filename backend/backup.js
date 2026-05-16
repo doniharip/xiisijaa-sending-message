@@ -79,55 +79,28 @@ async function generateSqlDump() {
 
 // ─── KIRIM KE TELEGRAM ────────────────────────────────────────
 async function sendToTelegram(content, fileName) {
-  const token  = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const token  = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
 
   if (!token)  throw new Error('TELEGRAM_BOT_TOKEN belum diset di Railway Variables');
   if (!chatId) throw new Error('TELEGRAM_CHAT_ID belum diset di Railway Variables');
 
-  // Kirim sebagai dokumen .sql via multipart/form-data
-  const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
-  const fileBytes = Buffer.from(content, 'utf8');
+  // Pakai FormData + fetch (built-in Node 18) — menghindari masalah karakter di path
+  const { Blob } = require('buffer');
+  const fileBlob = new Blob([content], { type: 'text/plain' });
+  const caption  = `Backup Database\n${new Date().toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})}\n${(Buffer.byteLength(content)/1024).toFixed(1)} KB`;
 
-  const body = Buffer.concat([
-    Buffer.from(
-      `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="chat_id"\r\n\r\n` +
-      `${chatId}\r\n` +
-      `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="caption"\r\n\r\n` +
-      `🗄 Backup Database\n📅 ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}\n📦 ${(fileBytes.length / 1024).toFixed(1)} KB\n\nPeran Rahasia Kelas — Auto Backup\r\n` +
-      `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="document"; filename="${fileName}"\r\n` +
-      `Content-Type: text/plain\r\n\r\n`
-    ),
-    fileBytes,
-    Buffer.from(`\r\n--${boundary}--\r\n`)
-  ]);
+  const form = new FormData();
+  form.append('chat_id', chatId);
+  form.append('caption', caption);
+  form.append('document', fileBlob, fileName);
 
-  const https = require('https');
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: 'api.telegram.org',
-      path:     `/bot${token}/sendDocument`,
-      method:   'POST',
-      headers:  {
-        'Content-Type':   `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': body.length,
-      },
-    }, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        const json = JSON.parse(data);
-        if (!json.ok) reject(new Error(`Telegram error: ${json.description}`));
-        else resolve(`https://t.me/c/${chatId.toString().replace('-100','')}/${json.result.message_id}`);
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
+  const url = `https://api.telegram.org/bot${encodeURIComponent(token).replace(/%3A/g,':')}/sendDocument`;
+  const res  = await fetch(url, { method: 'POST', body: form });
+  const json = await res.json();
+
+  if (!json.ok) throw new Error(`Telegram error: ${json.description}`);
+  return `https://t.me/${chatId}/${json.result.message_id}`;
 }
 
 // ─── LOG BACKUP ───────────────────────────────────────────────
