@@ -181,13 +181,41 @@ app.get('/api/messages/inbox', authUser, async (req, res) => {
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
-// Sent list
+// Sent list (nama saja — untuk chip)
 app.get('/api/messages/sent', authUser, async (req, res) => {
   try {
     const [rows] = await db.query(
       'SELECT DISTINCT recipient_name FROM messages WHERE sender_name = ?', [req.user.name]);
     res.json(rows.map(r => r.recipient_name));
   } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Sent detail — id + recipient + ciphertext untuk ditampilkan & diedit
+app.get('/api/messages/sent-detail', authUser, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, recipient_name, ciphertext, created_at FROM messages WHERE sender_name = ? ORDER BY created_at DESC',
+      [req.user.name]);
+    res.json(rows);
+  } catch(err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Edit pesan — hanya selama fase pengisian terbuka
+app.put('/api/messages/:id', authUser, async (req, res) => {
+  const { ciphertext } = req.body;
+  if (!ciphertext) return res.status(400).json({ error: 'Pesan tidak boleh kosong' });
+  try {
+    const phase = await getSetting('phase_send');
+    if (phase !== null && phase !== 'open')
+      return res.status(403).json({ error: 'Fase pengisian sudah ditutup. Pesan tidak bisa diedit.' });
+    // Pastikan pesan milik user ini
+    const [rows] = await db.query(
+      'SELECT id FROM messages WHERE id = ? AND sender_name = ?',
+      [req.params.id, req.user.name]);
+    if (!rows.length) return res.status(404).json({ error: 'Pesan tidak ditemukan' });
+    await db.query('UPDATE messages SET ciphertext = ? WHERE id = ?', [ciphertext, req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 // Recipient key (untuk enkripsi di client)

@@ -285,6 +285,7 @@ function userTab(btn, tabId){
   document.getElementById(tabId).classList.add('active');
   if(tabId==='tab-inbox'){ checkPhaseBanners(); renderInbox(); }
   if(tabId==='tab-send') { checkPhaseBanners(); loadUsers(); renderSentTo(); }
+  if(tabId==='tab-sent') { checkPhaseBanners(); renderSentDetail(); }
   if(tabId==='tab-class'){ checkPhaseBanners(); renderClassBoard(); }
 }
 
@@ -513,6 +514,135 @@ async function refreshLoginSelect(){
     });
     if(cur) sel.value = cur;
   } catch{}
+}
+
+// ─── SENT DETAIL ──────────────────────────────────────────────
+
+let _phaseOpen = true; // cache fase pengisian
+
+async function renderSentDetail(){
+  const el = document.getElementById('sent-detail-list');
+  if(!el) return;
+  el.innerHTML = '<div class="loading">Memuat pesan terkirim...</div>';
+
+  // Cek fase dulu
+  try{
+    const p = await API.getPhases();
+    _phaseOpen = p.phase_send === 'open';
+  } catch{}
+
+  try{
+    const msgs = await API.getSentDetail();
+    if(!msgs.length){
+      el.innerHTML = `<div class="empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <span>Belum ada pesan terkirim.</span>
+      </div>`;
+      return;
+    }
+
+    // Dekripsi semua pesan terkirim — pakai key_hash pengirim (diri sendiri) sebagai kunci
+    // Pesan dienkripsi dengan key penerima, jadi kita perlu re-fetch key tiap penerima
+    // Tampilkan saja ciphertext preview + info penerima, dekripsi saat edit
+    el.innerHTML = `
+      ${!_phaseOpen ? `<div class="notice notice-amber" style="margin-bottom:12px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Fase pengisian sudah ditutup — pesan tidak bisa diedit.
+      </div>` : ''}
+      <div class="msg-list">
+        ${msgs.map(m=>`
+          <div class="msg-card" id="sent-card-${m.id}">
+            <div class="class-msg-head">
+              <div class="class-msg-sender">
+                <div class="avatar" style="width:26px;height:26px;font-size:11px">${initials(m.recipient_name)}</div>
+                <span class="class-sender-name">Ke: ${esc(m.recipient_name)}</span>
+              </div>
+              ${_phaseOpen
+                ? `<button class="btn btn-sm btn-secondary" onclick="startEditMsg(${m.id},'${esc(m.recipient_name)}')">Edit</button>`
+                : `<span class="status-pill pill-pending" style="font-size:11px">Terkunci</span>`}
+            </div>
+            <div id="sent-content-${m.id}">
+              <p class="msg-text" style="margin-top:8px;color:var(--text-3);font-style:italic;font-size:13px">
+                Klik Edit untuk melihat & mengubah isi pesan
+              </p>
+            </div>
+            <div class="msg-date">${fmtDate(m.created_at)}</div>
+          </div>`).join('')}
+      </div>`;
+
+    // Simpan data pesan untuk keperluan edit
+    window._sentMsgs = Object.fromEntries(msgs.map(m=>[m.id, m]));
+
+  } catch(err){
+    el.innerHTML = `<div class="empty">Gagal memuat: ${esc(err.message)}</div>`;
+  }
+}
+
+async function startEditMsg(id, recipientName){
+  const contentEl = document.getElementById(`sent-content-${id}`);
+  const cardEl    = document.getElementById(`sent-card-${id}`);
+  if(!contentEl) return;
+
+  // Tampilkan loading saat fetch key & dekripsi
+  contentEl.innerHTML = '<div class="loading" style="padding:8px 0">Mendekripsi...</div>';
+
+  try{
+    // Ambil key penerima untuk dekripsi
+    const keyData   = await API.getRecipientKey(recipientName);
+    const msg       = window._sentMsgs?.[id];
+    if(!msg){ contentEl.innerHTML = '<p style="color:var(--red);font-size:13px">Data tidak ditemukan</p>'; return; }
+
+    const plain = await Crypto.decrypt(msg.ciphertext, keyData.key, recipientName);
+    const text  = plain !== null ? plain : '';
+
+    contentEl.innerHTML = `
+      <textarea id="edit-textarea-${id}" style="margin-top:8px;width:100%;min-height:80px;resize:vertical">${esc(text)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary btn-sm" onclick="saveEditMsg(${id},'${esc(recipientName)}')">Simpan</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelEditMsg(${id})">Batal</button>
+      </div>
+      <div id="edit-result-${id}"></div>`;
+
+    document.getElementById(`edit-textarea-${id}`)?.focus();
+  } catch(err){
+    contentEl.innerHTML = `<p style="color:var(--red);font-size:13px;margin-top:8px">${esc(err.message)}</p>`;
+  }
+}
+
+async function saveEditMsg(id, recipientName){
+  const ta = document.getElementById(`edit-textarea-${id}`);
+  if(!ta) return;
+  const newText = ta.value.trim();
+  if(!newText){ 
+    document.getElementById(`edit-result-${id}`).innerHTML = '<span style="color:var(--red);font-size:12px">Pesan tidak boleh kosong.</span>';
+    return;
+  }
+  try{
+    // Re-enkripsi dengan key penerima
+    const keyData    = await API.getRecipientKey(recipientName);
+    const ciphertext = await Crypto.encrypt(newText, keyData.key, recipientName);
+    await API.editMessage(id, ciphertext);
+
+    // Update cache
+    if(window._sentMsgs?.[id]) window._sentMsgs[id].ciphertext = ciphertext;
+
+    // Tampilkan sukses lalu kembali ke tampilan normal
+    const resultEl = document.getElementById(`edit-result-${id}`);
+    if(resultEl) resultEl.innerHTML = '<span style="color:var(--green);font-size:12px">Tersimpan!</span>';
+    setTimeout(()=>cancelEditMsg(id), 1000);
+  } catch(err){
+    const resultEl = document.getElementById(`edit-result-${id}`);
+    if(resultEl) resultEl.innerHTML = `<span style="color:var(--red);font-size:12px">${esc(err.message)}</span>`;
+  }
+}
+
+function cancelEditMsg(id){
+  const contentEl = document.getElementById(`sent-content-${id}`);
+  if(!contentEl) return;
+  contentEl.innerHTML = `
+    <p class="msg-text" style="margin-top:8px;color:var(--text-3);font-style:italic;font-size:13px">
+      Klik Edit untuk melihat & mengubah isi pesan
+    </p>`;
 }
 
 // ─── CLASS BOARD ──────────────────────────────────────────────

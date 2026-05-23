@@ -37,6 +37,8 @@ const API = (() => {
     // Inbox raw untuk re-enkripsi
     getInboxRaw:      ()              => req('GET','/messages/inbox-raw'),
     reEncryptMessages:(messages)      => req('POST','/messages/reencrypt',{messages}),
+    getSentDetail:    ()              => req('GET','/messages/sent-detail'),
+    editMessage:      (id,ciphertext) => req('PUT',`/messages/${id}`,{ciphertext}),
     // Class board
     getClassBoard:    ()              => req('GET','/class-board'),
     sendClassMsg:     (content)       => req('POST','/class-board',{content}),
