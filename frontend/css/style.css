@@ -374,6 +374,13 @@ textarea { resize: vertical; min-height: 88px; }
   margin: 0 auto;
 }
 
+.page-body .card {
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 10px
+}
+
 /* ─── MESSAGES ─────────────────────────────────────────────── */
 .msg-list { display: flex; flex-direction: column; gap: 10px; }
 

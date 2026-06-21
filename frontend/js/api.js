@@ -41,10 +41,12 @@ const API = (() => {
     editMessage:      (id,ciphertext) => req('PUT',`/messages/${id}`,{ciphertext}),
     // Class board
     getClassBoard:    ()              => req('GET','/class-board'),
+    getMyClassMsgs:   ()              => req('GET','/class-board/mine'),  // ← tambah ini
     sendClassMsg:     (content)       => req('POST','/class-board',{content}),
     deleteClassMsg:   (id)            => req('DELETE',`/class-board/${id}`),
     adminGetClassBoard:()             => req('GET','/admin/class-board'),
     adminDeleteClassMsg:(id)          => req('DELETE',`/admin/class-board/${id}`),
+    editClassMsg:     (id,content)    => req('PUT',`/class-board/${id}`,{content}),
     adminSetSettings: (body)          => req('PUT','/admin/settings',body),
   };
 })();

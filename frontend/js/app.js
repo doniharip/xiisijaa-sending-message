@@ -25,7 +25,6 @@ function togglePwd(inputId, btn){
 // ─── THEME ────────────────────────────────────────────────────
 function syncThemeIcons(theme){
   const icon = theme === 'dark' ? '☾' : '☀';
-  // Update semua elemen theme icon (ada di login, user topbar, admin topbar)
   document.querySelectorAll('#theme-icon, .theme-icon-sync').forEach(el => {
     el.textContent = icon;
   });
@@ -80,21 +79,16 @@ async function doSetup(){
     localStorage.setItem('sn_user', name);
     const keyHash = await sha256(pass);
     localStorage.setItem('sn_key', keyHash);
-
-    // Jika ada pesan lama yang dienkripsi dengan temp_key,
-    // re-enkripsi sekarang dengan key_hash baru
     if(data.temp_key && data.key_hash) {
       await reEncryptMessages(name, data.temp_key, data.key_hash);
     }
-
     await initUserScreen(name);
   } catch(e){ errEl.textContent = e.message; }
 }
 
-// Re-enkripsi pesan lama dari temp_key ke key_hash baru
 async function reEncryptMessages(name, oldKey, newKey) {
   try {
-    const msgs = await API.getInboxRaw(); // ambil ciphertext mentah
+    const msgs = await API.getInboxRaw();
     if(!msgs.length) return;
     const reencrypted = [];
     for(const m of msgs) {
@@ -104,9 +98,7 @@ async function reEncryptMessages(name, oldKey, newKey) {
         reencrypted.push({ id: m.id, ciphertext: newCipher });
       }
     }
-    if(reencrypted.length) {
-      await API.reEncryptMessages(reencrypted);
-    }
+    if(reencrypted.length) await API.reEncryptMessages(reencrypted);
   } catch(e) {
     console.warn('Re-enkripsi gagal (tidak kritis):', e.message);
   }
@@ -122,7 +114,6 @@ async function doLogin(){
     const data = await API.loginUser(name, pass);
     API.setToken(data.token);
     localStorage.setItem('sn_user', name);
-    // Simpan SHA-256 dari password — tidak perlu simpan password asli
     const keyHash = await sha256(pass);
     localStorage.setItem('sn_key', keyHash);
     await initUserScreen(name);
@@ -255,7 +246,7 @@ async function sendMsg(){
   const res = document.getElementById('send-result');
   res.innerHTML = '<div class="loading">Mengenkripsi...</div>';
   try{
-    const keyData   = await API.getRecipientKey(to);
+    const keyData    = await API.getRecipientKey(to);
     const ciphertext = await Crypto.encrypt(txt, keyData.key, to);
     await API.sendMessage(to, ciphertext);
     document.getElementById('send-msg').value = '';
@@ -321,7 +312,6 @@ async function loadAdminPhases(){
 }
 
 function updatePhaseUI(phase, val){
-  // Ganti underscore ke dash untuk cocok dengan id HTML
   const id = `phase-${phase.replace(/_/g,'-')}-status`;
   const el = document.getElementById(id);
   if(!el) return;
@@ -335,7 +325,6 @@ function updatePhaseUI(phase, val){
 }
 
 async function togglePhase(phase){
-  // phase pakai underscore (class_write) tapi id HTML pakai dash (toggle-class-write)
   const toggleId = `toggle-${phase.replace(/_/g,'-')}`;
   const chk = document.getElementById(toggleId);
   if(!chk) return;
@@ -517,20 +506,16 @@ async function refreshLoginSelect(){
 }
 
 // ─── SENT DETAIL ──────────────────────────────────────────────
-
-let _phaseOpen = true; // cache fase pengisian
+let _phaseOpen = true;
 
 async function renderSentDetail(){
   const el = document.getElementById('sent-detail-list');
   if(!el) return;
   el.innerHTML = '<div class="loading">Memuat pesan terkirim...</div>';
-
-  // Cek fase dulu
   try{
     const p = await API.getPhases();
     _phaseOpen = p.phase_send === 'open';
   } catch{}
-
   try{
     const msgs = await API.getSentDetail();
     if(!msgs.length){
@@ -540,10 +525,7 @@ async function renderSentDetail(){
       </div>`;
       return;
     }
-
-    // Dekripsi semua pesan terkirim — pakai key_hash pengirim (diri sendiri) sebagai kunci
-    // Pesan dienkripsi dengan key penerima, jadi kita perlu re-fetch key tiap penerima
-    // Tampilkan saja ciphertext preview + info penerima, dekripsi saat edit
+    window._sentMsgs = Object.fromEntries(msgs.map(m=>[m.id, m]));
     el.innerHTML = `
       ${!_phaseOpen ? `<div class="notice notice-amber" style="margin-bottom:12px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -563,16 +545,12 @@ async function renderSentDetail(){
             </div>
             <div id="sent-content-${m.id}">
               <p class="msg-text" style="margin-top:8px;color:var(--text-3);font-style:italic;font-size:13px">
-                Klik Edit untuk melihat & mengubah isi pesan
+                Klik Edit untuk melihat &amp; mengubah isi pesan
               </p>
             </div>
             <div class="msg-date">${fmtDate(m.created_at)}</div>
           </div>`).join('')}
       </div>`;
-
-    // Simpan data pesan untuk keperluan edit
-    window._sentMsgs = Object.fromEntries(msgs.map(m=>[m.id, m]));
-
   } catch(err){
     el.innerHTML = `<div class="empty">Gagal memuat: ${esc(err.message)}</div>`;
   }
@@ -580,21 +558,14 @@ async function renderSentDetail(){
 
 async function startEditMsg(id, recipientName){
   const contentEl = document.getElementById(`sent-content-${id}`);
-  const cardEl    = document.getElementById(`sent-card-${id}`);
   if(!contentEl) return;
-
-  // Tampilkan loading saat fetch key & dekripsi
   contentEl.innerHTML = '<div class="loading" style="padding:8px 0">Mendekripsi...</div>';
-
   try{
-    // Ambil key penerima untuk dekripsi
-    const keyData   = await API.getRecipientKey(recipientName);
-    const msg       = window._sentMsgs?.[id];
+    const keyData = await API.getRecipientKey(recipientName);
+    const msg     = window._sentMsgs?.[id];
     if(!msg){ contentEl.innerHTML = '<p style="color:var(--red);font-size:13px">Data tidak ditemukan</p>'; return; }
-
     const plain = await Crypto.decrypt(msg.ciphertext, keyData.key, recipientName);
     const text  = plain !== null ? plain : '';
-
     contentEl.innerHTML = `
       <textarea id="edit-textarea-${id}" style="margin-top:8px;width:100%;min-height:80px;resize:vertical">${esc(text)}</textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
@@ -602,7 +573,6 @@ async function startEditMsg(id, recipientName){
         <button class="btn btn-ghost btn-sm" onclick="cancelEditMsg(${id})">Batal</button>
       </div>
       <div id="edit-result-${id}"></div>`;
-
     document.getElementById(`edit-textarea-${id}`)?.focus();
   } catch(err){
     contentEl.innerHTML = `<p style="color:var(--red);font-size:13px;margin-top:8px">${esc(err.message)}</p>`;
@@ -613,20 +583,15 @@ async function saveEditMsg(id, recipientName){
   const ta = document.getElementById(`edit-textarea-${id}`);
   if(!ta) return;
   const newText = ta.value.trim();
-  if(!newText){ 
+  if(!newText){
     document.getElementById(`edit-result-${id}`).innerHTML = '<span style="color:var(--red);font-size:12px">Pesan tidak boleh kosong.</span>';
     return;
   }
   try{
-    // Re-enkripsi dengan key penerima
     const keyData    = await API.getRecipientKey(recipientName);
     const ciphertext = await Crypto.encrypt(newText, keyData.key, recipientName);
     await API.editMessage(id, ciphertext);
-
-    // Update cache
     if(window._sentMsgs?.[id]) window._sentMsgs[id].ciphertext = ciphertext;
-
-    // Tampilkan sukses lalu kembali ke tampilan normal
     const resultEl = document.getElementById(`edit-result-${id}`);
     if(resultEl) resultEl.innerHTML = '<span style="color:var(--green);font-size:12px">Tersimpan!</span>';
     setTimeout(()=>cancelEditMsg(id), 1000);
@@ -641,55 +606,86 @@ function cancelEditMsg(id){
   if(!contentEl) return;
   contentEl.innerHTML = `
     <p class="msg-text" style="margin-top:8px;color:var(--text-3);font-style:italic;font-size:13px">
-      Klik Edit untuk melihat & mengubah isi pesan
+      Klik Edit untuk melihat &amp; mengubah isi pesan
     </p>`;
 }
 
 // ─── CLASS BOARD ──────────────────────────────────────────────
-
-// Tidak ada batas karakter untuk pesan kelas
-
 async function renderClassBoard(){
   const el = document.getElementById('class-board-list');
   if(!el) return;
   el.innerHTML = '<div class="loading">Memuat pesan kelas...</div>';
   try{
-    const msgs = await API.getClassBoard();
-    const me   = localStorage.getItem('sn_user');
+    const me = localStorage.getItem('sn_user');
+    const phases = await API.getPhases();
+    const classWriteOpen = phases.phase_class_write === 'open';
+    const classReadOpen  = phases.phase_class_read  === 'open';
+
+    // Ambil pesan sesuai fase:
+    // - Fase baca buka: tampilkan semua pesan
+    // - Fase baca tutup tapi tulis buka: tampilkan hanya pesan sendiri (untuk edit)
+    // - Keduanya tutup: tampilkan pesan sendiri saja (read-only)
+    let msgs = [];
+    let showAllMsgs = false;
+    if(classReadOpen){
+      msgs = await API.getClassBoard();
+      showAllMsgs = true;
+    } else {
+      // Ambil pesan milik sendiri untuk keperluan edit
+      try{ msgs = await API.getMyClassMsgs(); } catch{}
+    }
+
     if(!msgs.length){
-      el.innerHTML = `<div class="empty">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>Belum ada pesan untuk kelas.</span>
-        <small style="color:var(--text-3)">Jadilah yang pertama menulis!</small>
-      </div>`;
+      window._classMsgs = {};
+      el.innerHTML = classReadOpen
+        ? `<div class="empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Belum ada pesan untuk kelas.</span>
+            <small style="color:var(--text-3)">Jadilah yang pertama menulis!</small>
+          </div>`
+        : `<div class="empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>${classWriteOpen ? 'Belum ada pesanmu. Tulis sekarang!' : 'Kamu belum menulis pesan kelas.'}</span>
+          </div>`;
       return;
     }
-    el.innerHTML = `<div class="msg-list">${msgs.map(m=>`
-      <div class="msg-card class-msg-card">
+
+    // PENTING: isi cache SEBELUM set innerHTML
+    window._classMsgs = Object.fromEntries(msgs.map(m => [m.id, m]));
+
+    // Jika fase baca tertutup, tambahkan info banner
+    const readClosedBanner = !classReadOpen
+      ? `<div class="notice notice-amber" style="margin-bottom:12px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Waktu pembacaan belum dibuka — hanya pesanmu sendiri yang terlihat.
+        </div>`
+      : '';
+
+    el.innerHTML = readClosedBanner + `<div class="msg-list">${msgs.map(m=>`
+      <div class="msg-card class-msg-card" id="class-card-${m.id}">
         <div class="class-msg-head">
           <div class="class-msg-sender">
             <div class="avatar" style="width:26px;height:26px;font-size:11px">${initials(m.sender_name)}</div>
             <span class="class-sender-name">${esc(m.sender_name)}</span>
             ${m.sender_name === me ? '<span class="badge-mine">Kamu</span>' : ''}
           </div>
-          ${m.sender_name === me
-            ? `<button class="btn-delete-class" onclick="deleteClassMsg(${m.id})" title="Hapus pesan">
+          ${m.sender_name === me ? `
+            <div style="display:flex;gap:6px">
+              ${classWriteOpen
+                ? `<button class="btn btn-sm btn-secondary" onclick="startEditClassMsg(${m.id})" style="padding:4px 10px;font-size:12px">Edit</button>`
+                : ''}
+              <button class="btn-delete-class" onclick="deleteClassMsg(${m.id})" title="Hapus">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              </button>`
-            : ''}
+              </button>
+            </div>` : ''}
         </div>
-        <p class="msg-text" style="margin-top:8px">${esc(m.content)}</p>
+        <div id="class-content-${m.id}">
+          <p class="msg-text" style="margin-top:8px">${esc(m.content)}</p>
+        </div>
         <div class="msg-date">${fmtDate(m.created_at)}</div>
       </div>`).join('')}</div>`;
   } catch(err){
-    if(err.message.includes('belum dibuka') || err.message.includes('ditutup')){
-      el.innerHTML = `<div class="empty">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>Waktu pembacaan pesan kelas belum dibuka.</span>
-      </div>`;
-    } else {
-      el.innerHTML = `<div class="empty">Gagal memuat: ${esc(err.message)}</div>`;
-    }
+    el.innerHTML = `<div class="empty">Gagal memuat: ${esc(err.message)}</div>`;
   }
 }
 
@@ -699,7 +695,6 @@ async function sendClassMsg(){
   try{
     await API.sendClassMsg(txt);
     document.getElementById('class-msg-input').value = '';
-
     setResult('class-send-result','Pesan berhasil dikirim.');
     await renderClassBoard();
   } catch(err){ setResult('class-send-result', err.message, 'error'); }
@@ -713,6 +708,40 @@ async function deleteClassMsg(id){
   } catch(err){ alert('Gagal: ' + err.message); }
 }
 
+function startEditClassMsg(id){
+  const el = document.getElementById(`class-content-${id}`);
+  if(!el) return;
+  // Ambil konten dari cache — aman dari HTML entity issue
+  const currentText = window._classMsgs?.[id]?.content || '';
+  el.innerHTML = `
+    <textarea id="class-edit-${id}" style="width:100%;min-height:70px;resize:vertical;margin-top:8px">${esc(currentText)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveEditClassMsg(${id})">Simpan</button>
+      <button class="btn btn-ghost btn-sm" onclick="renderClassBoard()">Batal</button>
+    </div>
+    <div id="class-edit-result-${id}"></div>`;
+  document.getElementById(`class-edit-${id}`)?.focus();
+}
+
+async function saveEditClassMsg(id){
+  const ta = document.getElementById(`class-edit-${id}`);
+  if(!ta) return;
+  const newText = ta.value.trim();
+  if(!newText){
+    document.getElementById(`class-edit-result-${id}`).innerHTML =
+      '<span style="color:var(--red);font-size:12px">Pesan tidak boleh kosong.</span>';
+    return;
+  }
+  try{
+    await API.editClassMsg(id, newText);
+    await renderClassBoard();
+  } catch(err){
+    const res = document.getElementById(`class-edit-result-${id}`);
+    if(res) res.innerHTML = `<span style="color:var(--red);font-size:12px">${esc(err.message)}</span>`;
+  }
+}
+
+// ─── ADMIN: CLASS BOARD ────────────────────────────────────────
 async function loadAdminClassBoard(){
   const el = document.getElementById('admin-class-list');
   if(!el) return;

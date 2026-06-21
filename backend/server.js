@@ -378,6 +378,18 @@ app.get('/api/settings/phases', async (req, res) => {
   }
 });
 
+// Ambil pesan kelas milik sendiri (untuk edit) — tidak perlu fase baca terbuka
+app.get('/api/class-board/mine', authUser, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, sender_name, content, created_at FROM class_messages WHERE sender_name = ? ORDER BY created_at DESC',
+      [req.user.name]);
+    res.json(rows);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get semua pesan kelas
 app.get('/api/class-board', authUser, async (req, res) => {
   try {
@@ -401,12 +413,39 @@ app.post('/api/class-board', authUser, async (req, res) => {
     const phase = await getSetting('phase_class_write');
     if (phase !== null && phase !== 'open')
       return res.status(403).json({ error: 'Waktu pengisian pesan kelas sudah ditutup.' });
-    await db.query(
-      'INSERT INTO class_messages (sender_name, content) VALUES (?, ?)',
-      [req.user.name, content.trim()]);
-    res.json({ success: true });
+    // Cek apakah sudah pernah kirim pesan kelas
+        const [existingClass] = await db.query(
+          'SELECT id FROM class_messages WHERE sender_name = ?', [req.user.name]);
+        if (existingClass.length) return res.status(409).json({
+          error: 'Kamu sudah mengirim pesan untuk kelas.' });
+        await db.query(
+          'INSERT INTO class_messages (sender_name, content) VALUES (?, ?)',
+          [req.user.name, content.trim()]);
+        res.json({ success: true });
   } catch(err) {
     console.error('class-board POST error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Edit pesan kelas — hanya pengirim sendiri, selama fase write terbuka
+app.put('/api/class-board/:id', authUser, async (req, res) => {
+  const { content } = req.body;
+  if (!content?.trim()) return res.status(400).json({ error: 'Pesan tidak boleh kosong' });
+  try {
+    const phase = await getSetting('phase_class_write');
+    if (phase !== null && phase !== 'open')
+      return res.status(403).json({ error: 'Waktu pengisian pesan kelas sudah ditutup.' });
+    const [rows] = await db.query(
+      'SELECT sender_name FROM class_messages WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Pesan tidak ditemukan' });
+    if (rows[0].sender_name !== req.user.name)
+      return res.status(403).json({ error: 'Kamu hanya bisa mengedit pesanmu sendiri' });
+    await db.query('UPDATE class_messages SET content = ? WHERE id = ?',
+      [content.trim(), req.params.id]);
+    res.json({ success: true });
+  } catch(err) {
+    console.error('class-board PUT error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
